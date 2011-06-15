@@ -8,7 +8,7 @@ def powertacModules =
                         "powertac-distribution-utility", "powertac-genco",
                         "powertac-household-customer", "powertac-physical-environment",
                         "powertac-random", "powertac-server-interface", "powertac-style",
-                        "powertac-visualizer"]]
+                        "powertac-visualizer", "powertac-web-app"]]
 
 // Retrieves a module from github as a tarball, saves to correctly-named file
 @Grab(group='org.codehaus.groovy.modules.http-builder', module='http-builder', version='0.5.1')
