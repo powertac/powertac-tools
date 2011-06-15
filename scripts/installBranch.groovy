@@ -42,6 +42,12 @@ boolean retrieveModule (String project, String module, String release)
 // Extracts the module and renames the directory as expected by grails
 def extract (String project, String module)
 {
+  // check for old dir
+  old = new File("${module}")
+  if (old.isDirectory()) {
+    println "Delete existing dir ${module}"
+    old.deleteDir()
+  }
   println "Extract ${module}.tgz"
   p = "tar xzf ${module}.tgz".execute()
   p.waitFor()
