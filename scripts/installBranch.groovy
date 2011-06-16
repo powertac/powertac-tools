@@ -53,7 +53,7 @@ def extract (String project, String module)
   p.waitFor()
   new File("${module}.tgz").delete()
   new File('.').listFiles().each { fn ->
-    if (fn.isDirectory() && fn.toString() ==~ /\.\/${project}-${module}-.*/) {
+    if (fn.isDirectory() && fn.toString() ==~ /\.(\/|\\)${project}-${module}-.*/) {
 	  // names start with './'
 	  def name = fn.toString()
 	  def newName = name[project.size()+3..name.lastIndexOf('-')-1]
