@@ -1,23 +1,26 @@
-// Downloads the set of powertac modules from github.
-// Usage: groovy installR0_4.groovy
+// Updates an existing install of PowerTAC release 0.4 by downloading a 
+// set of updated powertac modules from github.
+// Usage: groovy updateR0_4.groovy
 
-def powertacModules =
-  ["powertac": ["powertac-demo-agent-grails": "release-0.4-UPDATE",
-                "powertac-server": "release-0.4-UPDATE"],
-   "powertac-plugins": ["powertac-accounting-service": "release-0.4",
-                        "powertac-auctioneer-pda": "release-0.4-UPDATE",
-                        "powertac-common": "release-0.4-UPDATE", 
+def originalModules =
+  ["powertac-plugins": ["powertac-accounting-service": "release-0.4",
                         "powertac-db-stuff": "release-0.3", 
-                        "powertac-default-broker": "release-0.4-UPDATE",
                         "powertac-distribution-utility": "release-0.4", 
                         "powertac-genco": "release-0.4",
-                        "powertac-household-customer": "release-0.4-UPDATE", 
                         "powertac-physical-environment": "release-0.4",
                         "powertac-random": "release-0.3", 
-                        "powertac-server-interface": "release-0.4-UPDATE", 
                         "powertac-style": "release-0.3",
-                        "powertac-visualizer": "release-0.4-UPDATE", 
                         "powertac-web-app": "release-0.4"]]
+
+def updateModules =
+  ["powertac": ["powertac-demo-agent-grails": "release-0.4-UPDATE",
+                "powertac-server": "release-0.4-UPDATE"],
+   "powertac-plugins": ["powertac-auctioneer-pda": "release-0.4-UPDATE",
+                        "powertac-common": "release-0.4-UPDATE", 
+                        "powertac-default-broker": "release-0.4-UPDATE",
+                        "powertac-household-customer": "release-0.4-UPDATE", 
+                        "powertac-server-interface": "release-0.4-UPDATE", 
+                        "powertac-visualizer": "release-0.4-UPDATE"]]
 
 // Retrieves a module from github as a tarball, saves to correctly-named file
 @Grab(group='org.codehaus.groovy.modules.http-builder', module='http-builder', version='0.5.1')
@@ -88,8 +91,29 @@ if (args.size() > 0) {
   System.exit(1)
 }
 
-// For each module, download the tarball, unpack it, and clean up the directory name
-powertacModules.each { key, map ->
+// Download the original modules only if they do not already exist in the
+// local environment
+originalModules.each { key, map ->
+  map.each { module, release ->
+    original = new File("${module}")
+    if (original.isDirectory()) {
+      println "Dir ${module} exists"
+    }
+    else {
+      if (!retrieveModule(key, module, release)) {
+        println "failed to retrieve ${module}"
+        new File("${module}.tgz").delete()
+      }
+      else {
+        extract(key, module)
+      }
+    }
+  }
+}
+
+// For each updated module, download the tarball, unpack it, and clean up the
+// directory name
+updateModules.each { key, map ->
   map.each { module, release ->
     if (!retrieveModule(key, module, release)) {
       println "failed to retrieve ${module}"
