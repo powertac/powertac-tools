@@ -2,8 +2,8 @@
 // Usage: groovy installR0_4.groovy
 
 def powertacModules =
-  ["powertac": ["powertac-demo-agent-grails": "release-0.4",
-                "powertac-server": "release-0.4"],
+  ["powertac": ["powertac-demo-agent-grails": "release-0.4-PILOT",
+                "powertac-server": "release-0.4-PILOT"],
    "powertac-plugins": ["powertac-accounting-service": "release-0.4-PILOT",
                         "powertac-auctioneer-pda": "release-0.4-PILOT",
                         "powertac-common": "release-0.4-PILOT", 
