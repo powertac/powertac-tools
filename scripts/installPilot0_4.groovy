@@ -10,7 +10,7 @@ def powertacModules =
                         "powertac-db-stuff": "release-0.3", 
                         "powertac-default-broker": "release-0.4-PILOT",
                         "powertac-distribution-utility": "release-0.4", 
-                        "powertac-genco": "release-0.4",
+                        "powertac-genco": "release-0.4-PILOT",
                         "powertac-household-customer": "release-0.4-PILOT", 
                         "powertac-physical-environment": "release-0.4",
                         "powertac-random": "release-0.3", 
