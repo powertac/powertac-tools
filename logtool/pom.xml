@@ -32,7 +32,17 @@
     </repository>
   </repositories>
 
-  <dependencies>    
+  <dependencies>
+  <dependency>
+    <groupId>org.powertac</groupId>
+    <artifactId>default-broker</artifactId>
+    <version>0.6.3-SNAPSHOT</version>
+  </dependency>
+  <dependency>
+    <groupId>org.powertac</groupId>
+    <artifactId>genco</artifactId>
+    <version>0.6.3-SNAPSHOT</version>
+  </dependency>
   </dependencies>
 
   <build>

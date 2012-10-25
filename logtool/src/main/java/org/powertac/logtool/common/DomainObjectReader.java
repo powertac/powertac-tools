@@ -17,6 +17,7 @@ package org.powertac.logtool.common;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
@@ -24,11 +25,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 
 import org.apache.log4j.Logger;
 import org.joda.time.Instant;
 import org.powertac.common.state.Domain;
+import org.powertac.du.DefaultBroker;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.util.ReflectionUtils;
 
@@ -45,6 +48,8 @@ public class DomainObjectReader
   
   HashMap<Long, Object> idMap;
   HashMap<Class<?>, Class<?>> ifImplementors;
+  HashMap<String, Class<?>> substitutes;
+  HashSet<String> ignores;
   
   /**
    * Default constructor
@@ -53,9 +58,24 @@ public class DomainObjectReader
   {
     super();
     idMap = new HashMap<Long, Object>();
+    
     // Set up the interface defaults
     ifImplementors = new HashMap<Class<?>, Class<?>>();
     ifImplementors.put(List.class, ArrayList.class);
+    
+    // set up substitute list to handle inner classes in a reasonable way
+    substitutes = new HashMap<String, Class<?>>();
+    substitutes.put("org.powertac.du.DefaultBrokerService$LocalBroker",
+                    DefaultBroker.class);
+    
+    // set up the ignore list
+    ignores = new HashSet<String>();
+    ignores.add("org.powertac.common.Tariff");
+    ignores.add("org.powertac.common.Rate$ProbeCharge");
+    ignores.add("org.powertac.common.msg.SimPause");
+    ignores.add("org.powertac.common.msg.SimResume");
+    ignores.add("org.powertac.common.msg.PauseRequest");
+    ignores.add("org.powertac.common.msg.PauseRelease");
   }
   
   /**
@@ -68,21 +88,42 @@ public class DomainObjectReader
    * that a failure to resolve an object does not necessarily mean it's bogus,
    * but could mean that it could be resolved at a later time, typically
    * within one or a very few input lines. 
+   * @throws MissingDomainObject 
    */
   public Object readObject (String line)
+  throws MissingDomainObject
   {
     log.debug("readObject(" + line + ")");
     String body = line.substring(line.indexOf(':') + 1);
     String[] tokens = body.split("::");
     Class<?> clazz;
+    if (ignores.contains(tokens[0])) {
+      log.info("ignoring " + tokens[0]);
+      return null;
+    }
     try {
       clazz = Class.forName(tokens[0]);
     }
     catch (ClassNotFoundException e) {
-      log.error("class " + tokens[0] + " not found");
+      Class<?> subst = substitutes.get(tokens[0]);
+      if (null == subst) {
+        log.error("class " + tokens[0] + " not found");
+        return null;
+      }
+      else {
+        clazz = subst;
+        log.info("substituting " + clazz.getName() + " for " + tokens[0]);
+      }
+    }
+
+    long id = -1;
+    try {
+      id = Long.parseLong(tokens[1]);
+    }
+    catch (NumberFormatException nfe) {
+      log.debug("Number format exception - probably TimeService");
       return null;
     }
-    long id = Long.parseLong(tokens[1]);
     String methodName = tokens[2];
     log.debug("methodName=" + methodName);
     if (methodName.equals("new")) {
@@ -118,6 +159,7 @@ public class DomainObjectReader
   }
   
   private Object constructInstance (Class<?> clazz, String[] args)
+          throws MissingDomainObject
   {
     Constructor<?>[] potentials = clazz.getDeclaredConstructors();
     Constructor<?> target = null;
@@ -159,9 +201,10 @@ public class DomainObjectReader
     }
   }
 
-  // restores an instance from a readResolve record. Only in 1.0 and
-  // above. Fields are given in the @Domain annotation.
+  // restores an instance from a readResolve record.
+  // Fields are given in the @Domain annotation.
   private Object restoreInstance (Class<?> clazz, String[] args)
+          throws MissingDomainObject
   {
     Domain domain = clazz.getAnnotation(Domain.class);
     if (domain instanceof Domain) {
@@ -182,7 +225,7 @@ public class DomainObjectReader
       Class<?>[] types = new Class<?>[fieldNames.length];
       for (int i = 0; i < fieldNames.length; i++) {
         fields[i] = ReflectionUtils.findField(clazz, fieldNames[i]);
-        types[i] = fields[i].getClass();
+        types[i] = fields[i].getType();
       }
       Object[] data = resolveArgs(types, args);
       if (null == data) {
@@ -210,6 +253,7 @@ public class DomainObjectReader
   // from the logfile. They match if the strings can be resolved to
   // the corresponding types. 
   private Object[] resolveArgs (Type[] types, String[] args)
+          throws MissingDomainObject
   {
     // for each type, we attempt to resolve the corresponding arg
     // as an instance of that type.
@@ -221,6 +265,7 @@ public class DomainObjectReader
   }
   
   private Object resolveArg (Type type, String arg)
+  throws MissingDomainObject
   {
     // arg can be long id value, null, Collection, Array, Instant, String
     //
@@ -288,7 +333,12 @@ public class DomainObjectReader
   }
 
   private Object resolveSimpleArg (Class<?> clazz, String arg)
+  throws MissingDomainObject
   {
+    // handle the simplest case first
+    if (arg.equals("null"))
+      return null;
+    
     if (clazz.getName().startsWith("org.powertac")) {
       Method getId;
       try {
@@ -303,8 +353,8 @@ public class DomainObjectReader
           else {
             // it's a domain object, but we cannot resolve it
             // -- this should not happen.
-            log.error("Missing domain object " + key);
-            return null;
+            log.info("Missing domain object " + key);
+            throw new MissingDomainObject("missing object id=" + key);
           }
         }
       }
@@ -321,7 +371,7 @@ public class DomainObjectReader
     }
     
     // arg is not an id value - check if it's supposed to be a primitive
-    if (clazz.getName() == "boolean") {
+    if (clazz.getName().equals("boolean")) {
       boolean value = Boolean.parseBoolean(arg);
       if (value) {
         return true; // resolved as boolean
@@ -333,7 +383,7 @@ public class DomainObjectReader
         return null; // does not resolve
     }
     
-    if (clazz.getName() == "long") {
+    if (clazz.getName().equals("long")) {
       try {
         long value = Long.parseLong(arg);
         return value;
@@ -344,7 +394,7 @@ public class DomainObjectReader
       }
     }
     
-    if (clazz.getName() == "int") {
+    if (clazz.getName().equals("int")) {
       try {
         int value = Integer.parseInt(arg);
         return value;
@@ -355,7 +405,7 @@ public class DomainObjectReader
       }        
     }
     
-    if (clazz.getName() == "double") {
+    if (clazz.getName().equals("double") || clazz == Double.class) {
       try {
         double value = Double.parseDouble(arg);
         return value;
@@ -364,6 +414,10 @@ public class DomainObjectReader
         // not a double
         return null;
       }        
+    }
+    
+    if (clazz.getName() == "java.lang.Double") {
+      
     }
     
     // check for time value
@@ -399,6 +453,22 @@ public class DomainObjectReader
   // Sets the id field of a newly-constructed thing
   private void setId (Object thing, Long id)
   {
-    ReflectionTestUtils.setField(thing, "id", id);
+    Class<?> clazz = thing.getClass();
+    Method setId;
+    try {
+      setId = clazz.getMethod("setId", long.class);
+      setId.setAccessible(true);
+      setId.invoke(thing, (long)id);
+    }
+    catch (SecurityException e) {
+      log.error("Exception on setId(): " + e.toString());
+    }
+    catch (NoSuchMethodException e) {
+      // normal result of no setId() method
+      ReflectionTestUtils.setField(thing, "id", id);
+    }
+    catch (Exception e) {
+      log.error("Error setting id value " + e.toString());
+    }
   }
 }

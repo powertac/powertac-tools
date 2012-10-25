@@ -15,16 +15,14 @@
  */
 package org.powertac.logtool;
 
-import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 
-import org.apache.log4j.Logger;
 import org.powertac.logtool.common.DomainObjectReader;
+import org.powertac.logtool.common.MissingDomainObject;
 
 /**
  * Reads a state log file, re-creates and updates objects, calls
@@ -54,6 +52,7 @@ public class LogtoolCore
       return;
     }
     File input = new File(args[0]);
+    String line = null;
     if (!input.canRead()) {
       System.out.println("Cannot read file " + args[0]);
     }
@@ -62,7 +61,7 @@ public class LogtoolCore
       BufferedReader in =
               new BufferedReader(new FileReader(input));
       while (true) {
-        String line = in.readLine();
+        line = in.readLine();
         if (null == line)
           break;
         dor.readObject(line);
@@ -73,6 +72,9 @@ public class LogtoolCore
     }
     catch (IOException e) {
       System.out.println("error reading from file " + args[0]);
+    }
+    catch (MissingDomainObject e) {
+      System.out.println("MDO on " + line);
     }
   }
 }
