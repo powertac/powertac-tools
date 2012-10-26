@@ -9,10 +9,12 @@
 	                    http://activemq.apache.org/schema/core http://activemq.apache.org/schema/core/activemq-core-5.3.0.xsd">
 
   <context:annotation-config />
-  <context:component-scan base-package="org.powertac" />
+  <!--  <context:component-scan base-package="org.powertac" /> -->
   
   <bean id="taskExecutor" class="org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor" p:corePoolSize="5" p:maxPoolSize="25"/>
   
   <!-- need explicit list of beans that have properties to set -->
+  <bean id="logtoolCore" class="org.powertac.logtool.LogtoolCore" />
+  <bean id="reader" class="org.powertac.logtool.common.DomainObjectReader" />
   
 </beans>

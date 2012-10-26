@@ -15,6 +15,7 @@ import org.powertac.common.TariffSpecification;
 import org.powertac.common.Timeslot;
 import org.powertac.common.WeatherForecast;
 import org.powertac.common.WeatherForecastPrediction;
+import org.powertac.common.msg.BalancingOrder;
 
 public class DomainObjectReaderTest
 {
@@ -167,6 +168,30 @@ public class DomainObjectReaderTest
     }
     catch (MissingDomainObject mdo) {
       fail("should succeed: " + mdo.toString());
+    }
+  }
+  
+  @Test
+  public void readBalancingOrder ()
+  {
+    String ca = "125552:org.powertac.common.Broker::601::new::CrocodileAgent";
+    String r = "177360:org.powertac.common.Rate::200076920::new::200076919::-1::-1::-1::-1::0.0::true::-0.045598969348039364::0.0::0::0.0::0.1";
+    String ts = "177360:org.powertac.common.TariffSpecification::200076919::new::601::INTERRUPTIBLE_CONSUMPTION::0::0.0::0.0::-0.6";
+    String bo1 = "237911:org.powertac.common.msg.BalancingOrder::200077175::new::0.5::-0.04103907241323543::200076919::601";
+    try {
+      Broker crocodile = (Broker)dor.readObject(ca);
+      Rate rate = (Rate)dor.readObject(r);
+      TariffSpecification spec = (TariffSpecification)dor.readObject(ts);
+      Object result = dor.readObject(bo1);
+      assertNotNull("should read correctly", result);
+      BalancingOrder order = (BalancingOrder)result;
+      assertEquals("correct ratio", 0.5, order.getExerciseRatio(), 1e-6);
+      assertEquals("correct price", -0.04103907241323543, order.getPrice(), 1e-6);
+      assertEquals("correct broker", crocodile, order.getBroker());
+      assertEquals("correct tariff", 200076919, order.getTariffId());
+    }
+    catch (MissingDomainObject mdo) {
+      fail("should not fail: " + mdo.toString());
     }
   }
 }

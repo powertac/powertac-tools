@@ -32,6 +32,7 @@ import org.apache.log4j.Logger;
 import org.joda.time.Instant;
 import org.powertac.common.state.Domain;
 import org.powertac.du.DefaultBroker;
+import org.springframework.stereotype.Service;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.util.ReflectionUtils;
 
@@ -42,6 +43,7 @@ import org.springframework.util.ReflectionUtils;
  * 
  * @author John Collins
  */
+@Service
 public class DomainObjectReader
 {
   static private Logger log = Logger.getLogger(DomainObjectReader.class.getName());
@@ -189,8 +191,13 @@ public class DomainObjectReader
         target.setAccessible(true);
         result = target.newInstance(params);
       }
+      catch (InvocationTargetException ite) {
+        // arg-constructor mismatch
+        return restoreInstance(clazz, args);
+      }
       catch (Exception e) {
-        log.error("could not construct instance of " + clazz.getName());
+        log.error("could not construct instance of " + clazz.getName()
+                  + ": " + e.toString());
         return null;
       }
       return result;
@@ -225,7 +232,14 @@ public class DomainObjectReader
       Class<?>[] types = new Class<?>[fieldNames.length];
       for (int i = 0; i < fieldNames.length; i++) {
         fields[i] = ReflectionUtils.findField(clazz, fieldNames[i]);
-        types[i] = fields[i].getType();
+        if (null == fields[i]) {
+          log.warn("No field in " + clazz.getName()
+                   + " named " + fieldNames[i]);
+          types[i] = null;
+        }
+        else {
+          types[i] = fields[i].getType();
+        }
       }
       Object[] data = resolveArgs(types, args);
       if (null == data) {
@@ -234,6 +248,8 @@ public class DomainObjectReader
       }
       else {
         for (int i = 0; i < fields.length; i++) {
+          if (null == fields[i])
+            continue;
           fields[i].setAccessible(true);
           try {
             fields[i].set(thing, data[i]);
@@ -267,6 +283,11 @@ public class DomainObjectReader
   private Object resolveArg (Type type, String arg)
   throws MissingDomainObject
   {
+    // type can be null in a few cases - nothing to be done about it?
+    if (null == type) {
+      return null;
+    }
+
     // arg can be long id value, null, Collection, Array, Instant, String
     //
     // it's an id if the type starts with org.powertac and 

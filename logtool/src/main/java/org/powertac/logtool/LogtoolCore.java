@@ -21,17 +21,24 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 
+import org.apache.log4j.Logger;
 import org.powertac.logtool.common.DomainObjectReader;
 import org.powertac.logtool.common.MissingDomainObject;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 /**
  * Reads a state log file, re-creates and updates objects, calls
  * listeners.
  * @author John Collins
  */
+@Service
 public class LogtoolCore
 {
-  //static private Logger log = Logger.getLogger(LogtoolCore.class.getName());
+  static private Logger log = Logger.getLogger(LogtoolCore.class.getName());
+
+  @Autowired
+  private DomainObjectReader reader;
 
   /**
    * Default constructor
@@ -51,13 +58,21 @@ public class LogtoolCore
       System.out.println("Usage: Logtool file");
       return;
     }
-    File input = new File(args[0]);
+    readStateLog(args[0]);
+  }
+
+  /**
+   * Reads the given state-log file using the DomainObjectReader
+   */
+  public void readStateLog (String filename)
+  {
+    File input = new File(filename);
     String line = null;
     if (!input.canRead()) {
-      System.out.println("Cannot read file " + args[0]);
+      System.out.println("Cannot read file " + filename);
     }
-    DomainObjectReader dor = new DomainObjectReader();
     try {
+      DomainObjectReader dor = getReader();
       BufferedReader in =
               new BufferedReader(new FileReader(input));
       while (true) {
@@ -68,13 +83,26 @@ public class LogtoolCore
       }
     }
     catch (FileNotFoundException e) {
-      System.out.println("Cannot open file " + args[0]);
+      System.out.println("Cannot open file " + filename);
     }
     catch (IOException e) {
-      System.out.println("error reading from file " + args[0]);
+      System.out.println("error reading from file " + filename);
     }
     catch (MissingDomainObject e) {
       System.out.println("MDO on " + line);
     }
+  }
+  
+  /**
+   * Returns the singleton DomainObjectReader, 
+   * which is needed to set callbacks.
+   */
+  public DomainObjectReader getReader ()
+  {
+    if (null == reader) {
+      log.warn("Reader is not autowired");
+      reader = new DomainObjectReader();
+    }
+    return reader;
   }
 }

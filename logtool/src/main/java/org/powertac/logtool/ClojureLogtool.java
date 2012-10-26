@@ -22,22 +22,23 @@ import org.springframework.context.support.ClassPathXmlApplicationContext;
  * This is the top level of the Power TAC server.
  * @author John Collins
  */
-public class Logtool
+public class ClojureLogtool
 {
+  public static AbstractApplicationContext context;
   /**
    * Sets up the logtool, delegates everything to a LogtoolCore instance.
    */
   public static void main (String[] args)
   {
-    AbstractApplicationContext context =
-            new ClassPathXmlApplicationContext("logtool.xml");
+    context = new ClassPathXmlApplicationContext("logtool.xml");
     context.registerShutdownHook();
     
+    clojure.main.main(args);
+    
     // find the CompetitionControl and ServerProperties beans
-    LogtoolCore lc =
-            (LogtoolCore)context.getBeansOfType(LogtoolCore.class).values().toArray()[0];
-    //LogtoolCore runner = new LogtoolCore();
-    lc.processCmdLine(args);
+    //LogtoolCore lc =
+    //        (LogtoolCore)context.getBeansOfType(LogtoolCore.class).values().toArray()[0];
+    //lc.processCmdLine(args);
     
     // if we get here, it's time to exit
     System.exit(0);
