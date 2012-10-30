@@ -24,6 +24,7 @@ import java.io.IOException;
 import org.apache.log4j.Logger;
 import org.powertac.logtool.common.DomainObjectReader;
 import org.powertac.logtool.common.MissingDomainObject;
+import org.powertac.logtool.common.DomainBuilder;
 import org.powertac.logtool.ifc.Analyzer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -40,6 +41,9 @@ public class LogtoolCore
 
   @Autowired
   private DomainObjectReader reader;
+  
+  @Autowired
+  private DomainBuilder builder;
 
   /**
    * Default constructor
@@ -88,6 +92,7 @@ public class LogtoolCore
     }
     
     try {
+      builder.setup();
       tool.setup();
       DomainObjectReader dor = getReader();
       BufferedReader in =
@@ -98,6 +103,7 @@ public class LogtoolCore
           break;
         dor.readObject(line);
       }
+      builder.report();
       tool.report();
     }
     catch (FileNotFoundException e) {

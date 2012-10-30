@@ -72,7 +72,6 @@ implements Analyzer
     dailyImbalance = new ArrayList<Double>();
     dailyBrokerImbalance = new HashMap<Broker, ArrayList<Pair<Double, Double>>>();
 
-    dor.registerNewObjectListener(new BrokerHandler(), Broker.class);
     dor.registerNewObjectListener(new TimeslotUpdateHandler(),
                                   TimeslotUpdate.class);
     dor.registerNewObjectListener(new BalancingTxHandler(),
@@ -127,18 +126,6 @@ implements Analyzer
   {
     for (Broker broker : brokerRepo.findRetailBrokers()) {
       btx.put(broker, null);
-    }
-  }
-  
-  // -------------------------------
-  // catch new brokers, add to repo
-  class BrokerHandler implements NewObjectListener
-  {
-    @Override
-    public void handleNewObject (Object thing)
-    {
-      Broker broker = (Broker)thing;
-      brokerRepo.add(broker);
     }
   }
 
