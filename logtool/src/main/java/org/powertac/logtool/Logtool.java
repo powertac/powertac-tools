@@ -33,10 +33,9 @@ public class Logtool
             new ClassPathXmlApplicationContext("logtool.xml");
     context.registerShutdownHook();
     
-    // find the CompetitionControl and ServerProperties beans
+    // find the LogtoolCore bean
     LogtoolCore lc =
             (LogtoolCore)context.getBeansOfType(LogtoolCore.class).values().toArray()[0];
-    //LogtoolCore runner = new LogtoolCore();
     lc.processCmdLine(args);
     
     // if we get here, it's time to exit

@@ -9,12 +9,21 @@
 	                    http://activemq.apache.org/schema/core http://activemq.apache.org/schema/core/activemq-core-5.3.0.xsd">
 
   <context:annotation-config />
-  <!--  <context:component-scan base-package="org.powertac" /> -->
-  
+
+  <!--  no component-scan  -->
+
   <bean id="taskExecutor" class="org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor" p:corePoolSize="5" p:maxPoolSize="25"/>
-  
-  <!-- need explicit list of beans that have properties to set -->
+
+  <!-- need explicit list of beans -->
   <bean id="logtoolCore" class="org.powertac.logtool.LogtoolCore" />
   <bean id="reader" class="org.powertac.logtool.common.DomainObjectReader" />
-  
+
+  <!-- repos and other common elements -->
+  <bean id="appContext" class="org.powertac.common.spring.SpringApplicationContext" />
+  <bean id="brokerRepo" class="org.powertac.common.repo.BrokerRepo" />
+  <bean id="tariffRepo" class="org.powertac.common.repo.TariffRepo" />
+
+  <!-- analysis modules -->
+  <bean id="imbalance" class="org.powertac.logtool.example.ImbalanceStats" />
+
 </beans>

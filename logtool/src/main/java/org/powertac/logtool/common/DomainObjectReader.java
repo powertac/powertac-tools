@@ -53,6 +53,9 @@ public class DomainObjectReader
   HashMap<String, Class<?>> substitutes;
   HashSet<String> ignores;
   
+  // listeners
+  HashMap<Class<?>, ArrayList<NewObjectListener>> newObjectListeners;
+  
   /**
    * Default constructor
    */
@@ -78,6 +81,23 @@ public class DomainObjectReader
     ignores.add("org.powertac.common.msg.SimResume");
     ignores.add("org.powertac.common.msg.PauseRequest");
     ignores.add("org.powertac.common.msg.PauseRelease");
+    
+    // set up listener list
+    newObjectListeners = new HashMap<Class<?>, ArrayList<NewObjectListener>>();
+  }
+  
+  /**
+   * Registers a NewObjectListener
+   */
+  public void registerNewObjectListener (NewObjectListener listener,
+                                         Class<?> type)
+  {
+    ArrayList<NewObjectListener> list = newObjectListeners.get(type);
+    if (null == list){
+      list = new ArrayList<NewObjectListener>();
+      newObjectListeners.put(type, list);
+    }
+    list.add(listener);
   }
   
   /**
@@ -137,6 +157,7 @@ public class DomainObjectReader
         setId(newInst, id);
         idMap.put(id, newInst);
         log.debug("Created new instance " + id + " of class " + tokens[0]);
+        fireNewObjectEvent(newInst);
       }
       return newInst;
     }
@@ -149,15 +170,28 @@ public class DomainObjectReader
         setId(newInst, id);
         idMap.put(id, newInst);
         log.debug("Restored instance " + id + " of class " + tokens[0]);
+        fireNewObjectEvent(newInst);
       }
       return newInst;      
     }
+    // else - other method calls
     return null;
   }
   
   public Object getById (long id)
   {
     return idMap.get(id);
+  }
+  
+  private void fireNewObjectEvent (Object thing)
+  {
+    ArrayList<NewObjectListener> listeners =
+            newObjectListeners.get(thing.getClass());
+    if (null != listeners) {
+      for (NewObjectListener li : listeners) {
+        li.handleNewObject(thing);
+      }
+    }
   }
   
   private Object constructInstance (Class<?> clazz, String[] args)

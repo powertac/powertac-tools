@@ -24,6 +24,7 @@ import java.io.IOException;
 import org.apache.log4j.Logger;
 import org.powertac.logtool.common.DomainObjectReader;
 import org.powertac.logtool.common.MissingDomainObject;
+import org.powertac.logtool.ifc.Analyzer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -54,24 +55,40 @@ public class LogtoolCore
    */
   public void processCmdLine (String[] args)
   {
-    if (args.length == 0) {
-      System.out.println("Usage: Logtool file");
+    if (args.length < 2) {
+      System.out.println("Usage: Logtool file analyzer");
       return;
     }
-    readStateLog(args[0]);
+    readStateLog(args[0], args[1]);
   }
 
   /**
    * Reads the given state-log file using the DomainObjectReader
    */
-  public void readStateLog (String filename)
+  public void readStateLog (String filename, String analyzer)
   {
     File input = new File(filename);
     String line = null;
     if (!input.canRead()) {
       System.out.println("Cannot read file " + filename);
     }
+    
+    Analyzer tool;
     try {
+      Class<?> toolClass = Class.forName(analyzer);
+      tool = (Analyzer)toolClass.newInstance();
+    }
+    catch (ClassNotFoundException e1) {
+      System.out.println("Cannot find analyzer class " + analyzer);
+      return;
+    }
+    catch (Exception ex) {
+      System.out.println("Exception creating analyzer " + ex.toString());
+      return;
+    }
+    
+    try {
+      tool.setup();
       DomainObjectReader dor = getReader();
       BufferedReader in =
               new BufferedReader(new FileReader(input));
@@ -81,6 +98,7 @@ public class LogtoolCore
           break;
         dor.readObject(line);
       }
+      tool.report();
     }
     catch (FileNotFoundException e) {
       System.out.println("Cannot open file " + filename);
