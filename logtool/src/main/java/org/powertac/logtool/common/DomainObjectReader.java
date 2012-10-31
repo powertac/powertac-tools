@@ -30,8 +30,10 @@ import java.util.List;
 
 import org.apache.log4j.Logger;
 import org.joda.time.Instant;
+import org.powertac.common.TimeService;
 import org.powertac.common.state.Domain;
 import org.powertac.du.DefaultBroker;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.util.ReflectionUtils;
@@ -47,6 +49,9 @@ import org.springframework.util.ReflectionUtils;
 public class DomainObjectReader
 {
   static private Logger log = Logger.getLogger(DomainObjectReader.class.getName());
+  
+  @Autowired
+  private TimeService timeService;
   
   HashMap<Long, Object> idMap;
   HashMap<Class<?>, Class<?>> ifImplementors;
@@ -143,6 +148,10 @@ public class DomainObjectReader
       id = Long.parseLong(tokens[1]);
     }
     catch (NumberFormatException nfe) {
+      if (clazz == TimeService.class) {
+        // normal case - timeService does not have an id
+        updateTime(tokens[3]);
+      }
       log.debug("Number format exception - probably TimeService");
       return null;
     }
@@ -181,6 +190,13 @@ public class DomainObjectReader
   public Object getById (long id)
   {
     return idMap.get(id);
+  }
+  
+  private void updateTime (String time)
+  {
+    Instant value = Instant.parse(time);
+    timeService.setCurrentTime(value);
+    log.info("time set to " + time);
   }
   
   private void fireNewObjectEvent (Object thing)

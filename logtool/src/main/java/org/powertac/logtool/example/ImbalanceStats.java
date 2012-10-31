@@ -20,6 +20,7 @@ import java.util.HashMap;
 
 import org.powertac.common.BalancingTransaction;
 import org.powertac.common.Broker;
+import org.powertac.common.Competition;
 import org.powertac.common.msg.TimeslotUpdate;
 import org.powertac.common.repo.BrokerRepo;
 import org.powertac.common.spring.SpringApplicationContext;
@@ -86,8 +87,43 @@ implements Analyzer
     for (Double imbalance : dailyImbalance) {
       sumsq += imbalance * imbalance;
     }
+    System.out.println("Game " + Competition.currentCompetition().getName()
+                       + ", " + timeslot + " timeslots");
     System.out.println("RMS imbalance = "
                        + Math.sqrt(sumsq / dailyImbalance.size()));
+    for (Broker broker : brokerRepo.findRetailBrokers()) {
+      reportBrokerImbalance(broker);
+    }
+  }
+  
+  // Reports individual broker imbalance stats
+  // Results include RMS imbalance, average imbalance,
+  // total imbalance cost, and mean contribution to total
+  // imbalance
+  private void reportBrokerImbalance (Broker broker)
+  {
+    double sumsq = 0.0;
+    double imbalanceSum = 0.0;
+    double contributionSum = 0.0;
+    double cost = 0.0;
+    ArrayList<Pair<Double, Double>> brokerRecord =
+            dailyBrokerImbalance.get(broker);
+    for (int i = 0; i < dailyImbalance.size(); i++) {
+      double total = dailyImbalance.get(i);
+      double individual = brokerRecord.get(i).car();
+      sumsq += individual * individual;
+      imbalanceSum += individual;
+      double sgn = Math.signum(individual) * Math.signum(total);
+      contributionSum += Math.abs(individual) * sgn;
+      cost += brokerRecord.get(i).cdr();
+    }
+    int count = dailyImbalance.size();
+    System.out.println("Broker " + broker.getUsername()
+                       + "\n  RMS imbalance = " + Math.sqrt(sumsq / count)
+                       + "\n  mean imbalance = " + imbalanceSum / count
+                       + "\n  mean contribution = " + contributionSum / count
+                       + "\n  mean cost = " + cost / count
+                       + "(" + cost / imbalanceSum + "/kwh)");
   }
 
   // process daily balancing tx
