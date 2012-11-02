@@ -203,6 +203,9 @@ public class DomainObjectReader
   {
     ArrayList<NewObjectListener> listeners =
             newObjectListeners.get(thing.getClass());
+    if (null == listeners)
+      // try one up the tree to catch local subclasses like the default broker
+      listeners = newObjectListeners.get(thing.getClass().getSuperclass());
     if (null != listeners) {
       for (NewObjectListener li : listeners) {
         li.handleNewObject(thing);
@@ -338,13 +341,15 @@ public class DomainObjectReader
       return null;
     }
 
-    // arg can be long id value, null, Collection, Array, Instant, String
-    //
-    // it's an id if the type starts with org.powertac and 
-    // has a getId() method returning long
+    // check for non-parameterized types
     if (type instanceof Class) {
       Class<?> clazz = (Class<?>)type;
-      return resolveSimpleArg(clazz, arg);
+      if (clazz.isEnum()) {
+        return Enum.valueOf((Class<Enum>)type, arg);
+      }
+      else {
+        return resolveSimpleArg(clazz, arg);
+      }
     }
 
     // check for collection, denoted by leading (
