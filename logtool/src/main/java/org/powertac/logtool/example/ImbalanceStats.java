@@ -114,7 +114,7 @@ implements Analyzer
   {
     double sumsq = 0.0;
     double imbalanceSum = 0.0;
-    double imbalanceRatioSum = 0.0;
+    double deliveredSum = 0.0;
     double contributionSum = 0.0;
     double cost = 0.0;
     ArrayList<Pair<Double, Double>> brokerRecord =
@@ -129,21 +129,14 @@ implements Analyzer
       double sgn = Math.signum(individual) * Math.signum(total);
       contributionSum += Math.abs(individual) * sgn;
       cost += brokerRecord.get(i).cdr();
-      double delivered = 0.0;
       for (TariffTransaction tx : deliveries.get(i))
-        delivered += tx.getKWh();
-      if (individual != 0.0) {
-        if (delivered == 0.0)
-          log.error("individual = " + individual + ", delivered = 0.0");
-        else
-          imbalanceRatioSum += individual / delivered;
-      }
+        deliveredSum += tx.getKWh();
     }
     int count = dailyImbalance.size();
     System.out.println("Broker " + broker.getUsername()
                        + "\n  RMS imbalance = " + Math.sqrt(sumsq / count)
                        + "\n  mean imbalance = " + imbalanceSum / count
-                       + "\n  mean imbalance ratio = " + imbalanceRatioSum / count
+                       + "\n  imbalance ratio = " + imbalanceSum / deliveredSum
                        + "\n  mean contribution = " + contributionSum / count
                        + "\n  mean cost = " + cost / count
                        + "(" + cost / imbalanceSum + "/kwh)");
@@ -167,6 +160,9 @@ implements Analyzer
     // iterate through the balancing and tariff transactions
     double total = 0.0;
     for (Broker broker : brokerRepo.findRetailBrokers()) {
+      // capture summary data for printout
+      double balancingQty = 0.0;
+      double consumptionQty = 0.0;
       // balancing tx first
       BalancingTransaction bx = btx.get(broker);
       ArrayList<Pair<Double, Double>> entries = dailyBrokerImbalance.get(broker);
@@ -176,6 +172,7 @@ implements Analyzer
       }
       else {
         entries.add(new Pair<Double, Double>(bx.getKWh(), bx.getCharge()));
+        balancingQty = bx.getKWh();
         total += bx.getKWh();
       }
       // tariff tx next
@@ -186,9 +183,14 @@ implements Analyzer
         dailyTxs.add(new ArrayList<TariffTransaction>());
       }
       else {
+        for (TariffTransaction consumption : txs)
+          consumptionQty += consumption.getKWh();
         dailyTxs.add(txs);
         ttx.put(broker, null);
       }
+      //log.info("ts " + timeslot + ", broker " + broker.getUsername()
+      //         + ": consumption = " + consumptionQty
+      //         + ", balance qty = " + balancingQty);
     }
     dailyImbalance.add(total);
     timeslot += 1;
