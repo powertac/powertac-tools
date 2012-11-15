@@ -15,6 +15,9 @@
  */
 package org.powertac.logtool.example;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
 
@@ -61,6 +64,11 @@ implements Analyzer
   // daily tariff transactions
   private HashMap<Broker, ArrayList<ArrayList<TariffTransaction>>> dailyTraffic;
 
+  // data output file
+  private PrintWriter data = null;
+  private String dataFilename = "data.txt";
+  private boolean dataInit = false;
+
   /**
    * Constructor does nothing. Call setup() before reading a file to
    * get this to work.
@@ -70,6 +78,11 @@ implements Analyzer
     super();
   }
 
+  /**
+   * Creates data structures, opens output file. It would be nice to dump
+   * the broker names at this point, but they are not known until we hit the
+   * first timeslotUpdate while reading the file.
+   */
   @Override
   public void setup ()
   {
@@ -87,6 +100,13 @@ implements Analyzer
                                   BalancingTransaction.class);
     dor.registerNewObjectListener(new TariffTxHandler(),
                                   TariffTransaction.class);
+    try {
+      data = new PrintWriter(new File(dataFilename));
+      dataInit = false;
+    }
+    catch (FileNotFoundException e) {
+      log.error("Cannot open file " + dataFilename);
+    }
   }
 
   @Override
@@ -142,12 +162,17 @@ implements Analyzer
                        + "(" + cost / imbalanceSum + "/kwh)");
   }
 
-  // process daily balancing tx
+  // Called on timeslotUpdate. Note that there are two of these before
+  // the first "real" timeslot. Incoming tariffs are published at the end of
+  // the second timeslot (the third call to this method), and so customer
+  // consumption against non-default broker tariffs first occurs after
+  // four calls.
   private void summarizeTimeslot ()
   {
     // skip initial timeslot(s) without data, initialize data structures
     if (0 == btx.size() && 0 == dailyImbalance.size()) {
       initTxList();
+      initData();
       for (Broker broker : brokerRepo.findRetailBrokers()) {
         dailyBrokerImbalance.put(broker,
                                  new ArrayList<Pair<Double, Double>>());
@@ -158,7 +183,8 @@ implements Analyzer
     }
 
     // iterate through the balancing and tariff transactions
-    double total = 0.0;
+    double totalImbalance = 0.0;
+    double totalConsumption = 0.0;
     for (Broker broker : brokerRepo.findRetailBrokers()) {
       // capture summary data for printout
       double balancingQty = 0.0;
@@ -169,11 +195,13 @@ implements Analyzer
       if (null == bx) {
         // zero entries
         entries.add(new Pair<Double, Double>(0.0, 0.0));
+        data.print(" 0.0");
       }
       else {
         entries.add(new Pair<Double, Double>(bx.getKWh(), bx.getCharge()));
         balancingQty = bx.getKWh();
-        total += bx.getKWh();
+        data.print(" " + balancingQty);
+        totalImbalance += bx.getKWh();
       }
       // tariff tx next
       ArrayList<TariffTransaction> txs = ttx.get(broker);
@@ -185,6 +213,7 @@ implements Analyzer
       else {
         for (TariffTransaction consumption : txs)
           consumptionQty += consumption.getKWh();
+        totalConsumption += consumptionQty;
         dailyTxs.add(txs);
         ttx.put(broker, null);
       }
@@ -192,7 +221,8 @@ implements Analyzer
       //         + ": consumption = " + consumptionQty
       //         + ", balance qty = " + balancingQty);
     }
-    dailyImbalance.add(total);
+    dailyImbalance.add(totalImbalance);
+    data.println(" " + totalImbalance + " " + totalConsumption);
     timeslot += 1;
     initTxList();
   }
@@ -208,6 +238,18 @@ implements Analyzer
       }
       txList.clear();
     }
+  }
+  
+  private void initData ()
+  {
+    if (dataInit || null == data)
+      return;
+    data.print("columns:");
+    for (Broker broker : brokerRepo.findRetailBrokers()) {
+      data.print(" " + broker.getUsername());
+    }
+    data.println(" imbalance consumption");
+    dataInit = true;
   }
 
   // -------------------------------

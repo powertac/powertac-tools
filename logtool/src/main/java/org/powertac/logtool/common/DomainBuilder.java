@@ -23,6 +23,7 @@ import org.powertac.common.Broker;
 import org.powertac.common.CustomerInfo;
 import org.powertac.common.Rate;
 import org.powertac.common.TariffSpecification;
+import org.powertac.common.Timeslot;
 import org.powertac.common.repo.BrokerRepo;
 import org.powertac.common.repo.CustomerRepo;
 import org.powertac.common.repo.OrderbookRepo;
@@ -69,6 +70,7 @@ public class DomainBuilder implements Analyzer
     dor.registerNewObjectListener(new CustomerHandler(), CustomerInfo.class);
     dor.registerNewObjectListener(new TariffSpecHandler(), TariffSpecification.class);
     dor.registerNewObjectListener(new RateHandler(), Rate.class);
+    dor.registerNewObjectListener(new TimeslotHandler(), Timeslot.class);
   }
 
   @Override
@@ -146,5 +148,17 @@ public class DomainBuilder implements Analyzer
         rates.add(rate);
       }
     }
-  }  
+  }
+  
+  class TimeslotHandler implements NewObjectListener
+  {
+
+    @Override
+    public void handleNewObject (Object thing)
+    {
+      Timeslot timeslot = (Timeslot)thing;
+      timeslotRepo.add(timeslot);
+    }
+    
+  }
 }

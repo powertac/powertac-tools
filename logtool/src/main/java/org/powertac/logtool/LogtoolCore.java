@@ -20,6 +20,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.ArrayList;
 
 import org.apache.log4j.Logger;
 import org.powertac.logtool.common.DomainObjectReader;
@@ -60,40 +61,43 @@ public class LogtoolCore
   public void processCmdLine (String[] args)
   {
     if (args.length < 2) {
-      System.out.println("Usage: Logtool file analyzer");
+      System.out.println("Usage: Logtool file analyzer ...");
       return;
     }
-    readStateLog(args[0], args[1]);
+    readStateLog(args);
   }
 
   /**
    * Reads the given state-log file using the DomainObjectReader
    */
-  public void readStateLog (String filename, String analyzer)
+  public void readStateLog (String[] args)
   {
+    String filename = args[0];
     File input = new File(filename);
     String line = null;
     if (!input.canRead()) {
       System.out.println("Cannot read file " + filename);
     }
     
-    Analyzer tool;
-    try {
-      Class<?> toolClass = Class.forName(analyzer);
-      tool = (Analyzer)toolClass.newInstance();
-    }
-    catch (ClassNotFoundException e1) {
-      System.out.println("Cannot find analyzer class " + analyzer);
-      return;
-    }
-    catch (Exception ex) {
-      System.out.println("Exception creating analyzer " + ex.toString());
-      return;
-    }
+    ArrayList<Analyzer> tools = new ArrayList<Analyzer>();
+      for (int i = 1; i < args.length; i++) {
+        try {
+          Class<?> toolClass = Class.forName(args[i]);
+          tools.add((Analyzer)toolClass.newInstance());
+        }
+        catch (ClassNotFoundException e1) {
+          System.out.println("Cannot find analyzer class " + args[i]);
+        }
+        catch (Exception ex) {
+          System.out.println("Exception creating analyzer " + ex.toString());
+        }
+      }
     
     try {
       builder.setup();
-      tool.setup();
+      for (Analyzer tool : tools) {
+        tool.setup();
+      }
       DomainObjectReader dor = getReader();
       BufferedReader in =
               new BufferedReader(new FileReader(input));
@@ -104,7 +108,9 @@ public class LogtoolCore
         dor.readObject(line);
       }
       builder.report();
-      tool.report();
+      for (Analyzer tool : tools) {
+        tool.report();
+      }
     }
     catch (FileNotFoundException e) {
       System.out.println("Cannot open file " + filename);
