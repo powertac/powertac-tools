@@ -21,6 +21,7 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.List;
 
 import org.apache.log4j.Logger;
 import org.powertac.logtool.common.DomainObjectReader;
@@ -64,48 +65,49 @@ public class LogtoolCore
       System.out.println("Usage: Logtool file analyzer ...");
       return;
     }
-    readStateLog(args);
+    String filename = args[0];
+
+    ArrayList<Analyzer> tools = new ArrayList<Analyzer>();
+    for (int i = 1; i < args.length; i++) {
+      try {
+        Class<?> toolClass = Class.forName(args[i]);
+        tools.add((Analyzer)toolClass.newInstance());
+      }
+      catch (ClassNotFoundException e1) {
+        System.out.println("Cannot find analyzer class " + args[i]);
+      }
+      catch (Exception ex) {
+        System.out.println("Exception creating analyzer " + ex.toString());
+      }
+    }
+
+    readStateLog(filename, tools);
   }
 
   /**
    * Reads the given state-log file using the DomainObjectReader
    */
-  public void readStateLog (String[] args)
+  public void readStateLog (String filename, List<Analyzer> tools)
   {
-    String filename = args[0];
     File input = new File(filename);
     String line = null;
     if (!input.canRead()) {
       System.out.println("Cannot read file " + filename);
+      return;
     }
-    
-    ArrayList<Analyzer> tools = new ArrayList<Analyzer>();
-      for (int i = 1; i < args.length; i++) {
-        try {
-          Class<?> toolClass = Class.forName(args[i]);
-          tools.add((Analyzer)toolClass.newInstance());
-        }
-        catch (ClassNotFoundException e1) {
-          System.out.println("Cannot find analyzer class " + args[i]);
-        }
-        catch (Exception ex) {
-          System.out.println("Exception creating analyzer " + ex.toString());
-        }
-      }
-    
+    log.info("Reading file " + filename);    
     try {
       builder.setup();
       for (Analyzer tool : tools) {
         tool.setup();
       }
-      DomainObjectReader dor = getReader();
       BufferedReader in =
               new BufferedReader(new FileReader(input));
       while (true) {
         line = in.readLine();
         if (null == line)
           break;
-        dor.readObject(line);
+        reader.readObject(line);
       }
       builder.report();
       for (Analyzer tool : tools) {
@@ -124,15 +126,12 @@ public class LogtoolCore
   }
   
   /**
-   * Returns the singleton DomainObjectReader, 
-   * which is needed to set callbacks.
+   * Reads the given state log with a single analyzer
    */
-  public DomainObjectReader getReader ()
+  public void readStateLog(String filename, Analyzer tool)
   {
-    if (null == reader) {
-      log.warn("Reader is not autowired");
-      reader = new DomainObjectReader();
-    }
-    return reader;
+    ArrayList<Analyzer> tools = new ArrayList<Analyzer>();
+    tools.add(tool);
+    readStateLog(filename, tools);
   }
 }

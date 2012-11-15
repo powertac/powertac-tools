@@ -27,15 +27,17 @@ import org.powertac.common.TimeService;
 import org.powertac.common.msg.TimeslotUpdate;
 import org.powertac.common.repo.TimeslotRepo;
 import org.powertac.common.spring.SpringApplicationContext;
+import org.powertac.logtool.LogtoolContext;
 import org.powertac.logtool.common.DomainObjectReader;
 import org.powertac.logtool.common.NewObjectListener;
-import org.powertac.logtool.example.ImbalanceStats.TimeslotUpdateHandler;
 import org.powertac.logtool.ifc.Analyzer;
 
 /**
  * @author jcollins
  */
-public class MktPriceStats implements Analyzer
+public class MktPriceStats
+extends LogtoolContext
+implements Analyzer
 {
   static private Logger log = Logger.getLogger(MktPriceStats.class.getName());
 
@@ -52,6 +54,28 @@ public class MktPriceStats implements Analyzer
   
   private PrintWriter output = null;
   private String dataFilename = "clearedTrades.data";
+  
+  /**
+   * Main method just creates an instance and passes command-line args to
+   * its inherited cli() method.
+   */
+  public static void main (String[] args)
+  {
+    new MktPriceStats().cli(args);
+  }
+  
+  /**
+   * Takes two args, input filename and output filename
+   */
+  private void cli (String[] args)
+  {
+    if (args.length != 2) {
+      System.out.println("Usage: <analyzer> input-file output-file");
+      return;
+    }
+    dataFilename = args[1];
+    super.cli(args[0], this);
+  }
 
   /* (non-Javadoc)
    * @see org.powertac.logtool.ifc.Analyzer#setup()
@@ -82,23 +106,20 @@ public class MktPriceStats implements Analyzer
   @Override
   public void report ()
   {
-    output.print("[");
     for (Map.Entry<Integer, ClearedTrade[]> entry : data.entrySet()) {
-      output.print("[");
       String delim = "";
       for (ClearedTrade trade : entry.getValue()) {
         if (null == trade) {
-          output.print(delim + "[0.0, 0.0]");
+          output.print(delim + "[0.0 0.0]");
         }
         else {
-          output.format("%s[%.3f, %.3f]", delim,
+          output.format("%s[%.4f %.4f]", delim,
                         trade.getExecutionMWh(), trade.getExecutionPrice());
         }
-        delim = ", ";
+        delim = " ";
       }
-      output.println("],");
+      output.println();
     }
-    output.println("]");
   }
 
   // -----------------------------------

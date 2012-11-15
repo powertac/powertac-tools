@@ -24,6 +24,7 @@ import org.joda.time.Instant;
 import org.powertac.common.TimeService;
 import org.powertac.common.WeatherReport;
 import org.powertac.common.spring.SpringApplicationContext;
+import org.powertac.logtool.LogtoolContext;
 import org.powertac.logtool.common.DomainObjectReader;
 import org.powertac.logtool.common.NewObjectListener;
 import org.powertac.logtool.ifc.Analyzer;
@@ -33,7 +34,9 @@ import org.powertac.logtool.ifc.Analyzer;
  * 
  * @author John Collins
  */
-public class WeatherStats implements Analyzer
+public class WeatherStats
+extends LogtoolContext
+implements Analyzer
 {
   static private Logger log = Logger.getLogger(WeatherStats.class.getName());
 
@@ -53,6 +56,28 @@ public class WeatherStats implements Analyzer
     super();
   }
   
+  /**
+   * Main method just creates an instance and passes command-line args to
+   * its inherited cli() method.
+   */
+  public static void main (String[] args)
+  {
+    new WeatherStats().cli(args);
+  }
+  
+  /**
+   * Takes two args, input filename and output filename
+   */
+  private void cli (String[] args)
+  {
+    if (args.length != 2) {
+      System.out.println("Usage: <analyzer> input-file output-file");
+      return;
+    }
+    dataFilename = args[1];
+    super.cli(args[0], this);
+  }
+
   /* (non-Javadoc)
    * @see org.powertac.logtool.ifc.Analyzer#setup()
    */

@@ -1,5 +1,5 @@
 /*
- * Copyright 2011, 2012 the original author or authors.
+ * Copyright 2012 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,9 @@ import org.springframework.context.support.AbstractApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
 /**
- * This is the top level of the Power TAC server.
+ * This is the top level of the top-down version of the
+ * Power TAC logtool analyzer. To use it, give a filename and the
+ * classnames of a set of Analyzers.
  * @author John Collins
  */
 public class Logtool

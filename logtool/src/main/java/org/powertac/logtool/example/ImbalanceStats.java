@@ -29,6 +29,7 @@ import org.powertac.common.TariffTransaction;
 import org.powertac.common.msg.TimeslotUpdate;
 import org.powertac.common.repo.BrokerRepo;
 import org.powertac.common.spring.SpringApplicationContext;
+import org.powertac.logtool.LogtoolContext;
 import org.powertac.logtool.common.DomainObjectReader;
 import org.powertac.logtool.common.NewObjectListener;
 import org.powertac.logtool.ifc.Analyzer;
@@ -42,6 +43,7 @@ import org.powertac.util.Pair;
  * @author John Collins
  */
 public class ImbalanceStats
+extends LogtoolContext
 implements Analyzer
 {
   static private Logger log = Logger.getLogger(ImbalanceStats.class.getName());
@@ -76,6 +78,28 @@ implements Analyzer
   public ImbalanceStats ()
   {
     super();
+  }
+  
+  /**
+   * Main method just creates an instance and passes command-line args to
+   * its inherited cli() method.
+   */
+  public static void main (String[] args)
+  {
+    new ImbalanceStats().cli(args);
+  }
+  
+  /**
+   * Takes two args, input filename and output filename
+   */
+  private void cli (String[] args)
+  {
+    if (args.length != 2) {
+      System.out.println("Usage: <analyzer> input-file output-file");
+      return;
+    }
+    dataFilename = args[1];
+    super.cli(args[0], this);
   }
 
   /**
