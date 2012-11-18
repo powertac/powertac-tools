@@ -7,6 +7,7 @@ import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.powertac.common.Broker;
+import org.powertac.common.Competition;
 import org.powertac.common.DistributionTransaction;
 import org.powertac.common.HourlyCharge;
 import org.powertac.common.Order;
@@ -192,6 +193,28 @@ public class DomainObjectReaderTest
     }
     catch (MissingDomainObject mdo) {
       fail("should not fail: " + mdo.toString());
+    }
+  }
+  
+  @Test
+  public void simpleMethodCall ()
+  {
+    String nc = "140:org.powertac.common.Competition::0::new::game-9";
+    String m1 = "221:org.powertac.common.Competition::0::withSimulationBaseTime::1229644800000";
+    String m2 = "222:org.powertac.common.Competition::0::withMinimumTimeslotCount::1380";
+    String m3 = "222:org.powertac.common.Competition::0::withExpectedTimeslotCount::1440";
+    try {
+      Competition comp = (Competition)dor.readObject(nc);
+      assertNotNull("valid Competition", comp);
+      dor.readObject(m1);
+      assertEquals("correct base time", 1229644800000l, comp.getSimulationBaseTime().getMillis());
+      dor.readObject(m2);
+      assertEquals("correct min ts count", 1380, comp.getMinimumTimeslotCount());
+      dor.readObject(m3);
+      assertEquals("correct exp ts count", 1440, comp.getExpectedTimeslotCount());
+    }
+    catch (MissingDomainObject mdo) {
+      fail("should not happen: " + mdo.toString());
     }
   }
 }

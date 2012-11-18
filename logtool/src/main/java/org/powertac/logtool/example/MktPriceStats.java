@@ -33,7 +33,17 @@ import org.powertac.logtool.common.NewObjectListener;
 import org.powertac.logtool.ifc.Analyzer;
 
 /**
- * @author jcollins
+ * Logtool Analyzer that reads ClearedTrade instances as the arrive and
+ * builds an array for each timeslot giving all the market clearings for
+ * that timeslot, indexed by leadtime. The output data file has one 
+ * line/timeslot formatted as<br>
+ * [mwh price] [mwh price] ...<br>
+ * Each line has 24 entries, assuming that each timeslot is open for trading
+ * 24 times.
+ * 
+ * Usage: MktPriceStats state-log-filename output-data-filename
+ * 
+ * @author John Collins
  */
 public class MktPriceStats
 extends LogtoolContext

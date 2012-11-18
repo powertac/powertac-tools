@@ -152,7 +152,9 @@ public class DomainObjectReader
         // normal case - timeService does not have an id
         updateTime(tokens[3]);
       }
-      log.debug("Number format exception - probably TimeService");
+      else {
+        log.debug("Number format exception reading id");
+      }
       return null;
     }
     String methodName = tokens[2];
@@ -183,7 +185,49 @@ public class DomainObjectReader
       }
       return newInst;      
     }
-    // else - other method calls
+    else {
+      // other method calls -- object should already exist
+      Object inst = idMap.get(id);
+      if (null == inst) {
+        log.error("Cannot find instance for id " + id);
+        return null;
+      }
+      Method[] methods = clazz.getMethods();
+      ArrayList<Method> candidates = new ArrayList<Method>();
+      for (Method method : methods) {
+        if (method.getName().equals(methodName)) {
+          candidates.add(method);
+        }
+      }
+      // We now have a list of candidate methods.
+      if (0 == candidates.size()) {
+        log.error("Cannot find method " + methodName
+                  + " for class " + clazz.getName());
+        return null;
+      }
+      if (1 == candidates.size()) {
+        // there's one candidate, probably it is the correct one
+        if (!tryMethodCall(inst, candidates.get(0),
+                           Arrays.copyOfRange(tokens, 3, tokens.length))) {
+          log.error("Failed to invoke method " + methodName
+                    + " on instance of " + clazz.getName());
+        }
+      }
+      else {
+        // multiple candidates -- try them until we get success
+        boolean success = false;
+        for (Method candidate : candidates) {
+          success = tryMethodCall(inst, candidate,
+                                  Arrays.copyOfRange(tokens, 3, tokens.length));
+          if (success)
+            break;
+        }
+        if (!success) {
+          log.error("Failed to find viable candidate for " + methodName
+                    + " on instance of " + clazz.getName());
+        }
+      }
+    }
     return null;
   }
   
@@ -316,6 +360,40 @@ public class DomainObjectReader
       return thing;
     }
     return null;
+  }
+  
+  // attempts to call a method by reconstructing its args and invoking it
+  private boolean tryMethodCall (Object thing, Method method, String[] args)
+  {
+    Type[] argTypes = method.getGenericParameterTypes();
+    Object[] realArgs;
+    if (0 == argTypes.length) {
+      // no args
+      realArgs = null;
+    }
+    else {
+      try {
+        realArgs = resolveArgs(argTypes, args);
+        if (null == realArgs || realArgs.length != args.length) {
+          log.debug("Could not resolve args: method " + method.getName()
+                    + ", class = " + thing.getClass().getName()
+                    + ", args = " + args);
+          return false;
+        }
+      }
+      catch (MissingDomainObject mdo) {
+        return false;
+      }
+    }
+    try {
+      method.invoke(thing, realArgs);
+      return true;
+    }
+    catch (Exception e) {
+      log.error("Exception calling method " + method.getName()
+                + " on args " + args);
+    }
+    return false;
   }
 
   // attempts to match a set of types with a set of String arguments
