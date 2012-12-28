@@ -366,6 +366,9 @@ public class DomainObjectReader
   private boolean tryMethodCall (Object thing, Method method, String[] args)
   {
     Type[] argTypes = method.getGenericParameterTypes();
+    if (argTypes.length != args.length)
+      // bail if arglist lengths do not match
+      return false;
     Object[] realArgs;
     if (0 == argTypes.length) {
       // no args

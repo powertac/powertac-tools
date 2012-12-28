@@ -2,7 +2,7 @@
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <name>powertac-logtool</name>
+  <name>powertac-logtool-examples</name>
   <url>http://www.powertac.org</url>
 
   <parent>
@@ -12,8 +12,8 @@
     <relativePath />
   </parent>
 
-  <artifactId>logtool</artifactId>
-  <description>Tool for analyzing state logs produced by the Power TAC
+  <artifactId>logtool-examples</artifactId>
+  <description>Tools for analyzing state logs produced by the Power TAC
   simulation server</description>
   <groupId>org.powertac</groupId>
   <version>1.0.0-SNAPSHOT</version>
@@ -33,21 +33,27 @@
   </repositories>
 
   <dependencies>
-  <dependency>
-    <groupId>org.powertac</groupId>
-    <artifactId>logtool</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
-  </dependency>
-  <!-- <dependency>
-    <groupId>org.clojure</groupId>
-    <artifactId>clojure</artifactId>
-    <version>1.4.0</version>
-  </dependency>
-  <dependency>
-    <groupId>org.clojure</groupId>
-    <artifactId>clojure-contrib</artifactId>
-    <version>1.2.0</version>
-  </dependency> -->
+    <dependency>
+      <groupId>org.powertac</groupId>
+      <artifactId>logtool</artifactId>
+      <version>1.0.0-SNAPSHOT</version>
+    </dependency>
+    <dependency>
+      <!-- not sure why this is needed. It's included in logtool already -->
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-test</artifactId>
+      <version>${spring.version}</version>
+    </dependency>
+    <!-- <dependency>
+	 <groupId>org.clojure</groupId>
+	 <artifactId>clojure</artifactId>
+	 <version>1.4.0</version>
+	 </dependency>
+	 <dependency>
+	 <groupId>org.clojure</groupId>
+	 <artifactId>clojure-contrib</artifactId>
+	 <version>1.2.0</version>
+	 </dependency> -->
   </dependencies>
 
   <!-- <plugins>
