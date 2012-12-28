@@ -35,24 +35,31 @@
   <dependencies>
   <dependency>
     <groupId>org.powertac</groupId>
-    <artifactId>default-broker</artifactId>
+    <artifactId>logtool</artifactId>
     <version>1.0.0-SNAPSHOT</version>
+  </dependency>
+  <!-- <dependency>
+    <groupId>org.clojure</groupId>
+    <artifactId>clojure</artifactId>
+    <version>1.4.0</version>
   </dependency>
   <dependency>
-    <groupId>org.powertac</groupId>
-    <artifactId>genco</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
-  </dependency>
-    <dependency>
-      <groupId>org.springframework</groupId>
-      <artifactId>spring-test</artifactId>
-      <version>${spring.version}</version>
-    </dependency>
+    <groupId>org.clojure</groupId>
+    <artifactId>clojure-contrib</artifactId>
+    <version>1.2.0</version>
+  </dependency> -->
   </dependencies>
 
-  <!-- The exec setup is for experimental purposes. The logtool core
-       is intended to be wrapped by a main class that extends
-       LogtoolContext and implements Analyzer -->
+  <!-- <plugins>
+    <plugin>
+      <groupId>com.theoryinpractise</groupId>
+      <artifactId>clojure-maven-plugin</artifactId>
+      <version>1.3.12</version>
+      <extensions>true</extensions>
+    </plugin>
+  </plugins> -->
+
+  <!-- Run as mvn exec:exec -Dexec.args="main-class args" -->
   <build>
     <finalName>logtool</finalName>
     <plugins>
@@ -69,7 +76,7 @@
          </executions>
         <configuration>
           <executable>java</executable>
-          <commandlineArgs>-server -Xmx512m -classpath %classpath org.powertac.logtool.Logtool ${exec.args}</commandlineArgs>
+          <commandlineArgs>-server -Xmx1024m -classpath %classpath ${exec.args}</commandlineArgs>
         </configuration>
       </plugin>
     </plugins>

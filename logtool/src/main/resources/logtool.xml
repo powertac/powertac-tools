@@ -26,7 +26,4 @@
   <bean id="orderbookRepo" class="org.powertac.common.repo.OrderbookRepo" />
   <bean id="timeslotRepo" class="org.powertac.common.repo.TimeslotRepo" />
 
-  <!-- analysis modules -->
-  <bean id="imbalance" class="org.powertac.logtool.example.ImbalanceStats" />
-
 </beans>

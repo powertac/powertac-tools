@@ -93,9 +93,9 @@ implements Analyzer
   @Override
   public void setup ()
   {
-    dor = (DomainObjectReader) SpringApplicationContext.getBean("reader");
-    timeslotRepo = (TimeslotRepo) SpringApplicationContext.getBean("timeslotRepo");
-    timeService = (TimeService) SpringApplicationContext.getBean("timeService");
+    dor = (DomainObjectReader) getBean("reader");
+    timeslotRepo = (TimeslotRepo) getBean("timeslotRepo");
+    timeService = (TimeService) getBean("timeService");
     dor.registerNewObjectListener(new TimeslotUpdateHandler(),
                                   TimeslotUpdate.class);
     dor.registerNewObjectListener(new ClearedTradeHandler(),

@@ -29,17 +29,26 @@ import org.springframework.context.support.ClassPathXmlApplicationContext;
  */
 public abstract class LogtoolContext
 {
+  AbstractApplicationContext context;
+  
   /**
    * Sets up Spring context, returns LogtoolCore instance
    */
   protected LogtoolCore getCore ()
   {
-    AbstractApplicationContext context =
-            new ClassPathXmlApplicationContext("logtool.xml");
+    context = new ClassPathXmlApplicationContext("logtool.xml");
     context.registerShutdownHook();
     
     // find the LogtoolCore bean
     return (LogtoolCore)context.getBeansOfType(LogtoolCore.class).values().toArray()[0];
+  }
+  
+  /**
+   * Retrieves a Spring component instance by name
+   */
+  protected Object getBean (String beanName)
+  {
+    return context.getBean(beanName);
   }
   
   /**
