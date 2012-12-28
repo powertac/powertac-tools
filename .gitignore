@@ -8,7 +8,6 @@
 
 # Deployment directories
 target/
-activemq-data/
 log/
 .settings/
 
@@ -19,6 +18,7 @@ ehthumbs.db
 Icon?
 Thumbs.db
 *.log
+*~
 
 # Compiled source
 *.class
