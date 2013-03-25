@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012 by the original author
+ * Copyright (c) 2012-2013 by the original author
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -81,6 +81,7 @@ public class DomainObjectReader
     // set up the ignore list
     ignores = new HashSet<String>();
     ignores.add("org.powertac.common.Tariff");
+    //ignores.add("org.powertac.genco.Genco");
     ignores.add("org.powertac.common.Rate$ProbeCharge");
     ignores.add("org.powertac.common.msg.SimPause");
     ignores.add("org.powertac.common.msg.SimResume");
@@ -92,7 +93,9 @@ public class DomainObjectReader
   }
   
   /**
-   * Registers a NewObjectListener
+   * Registers a NewObjectListener. The listener will be called with
+   * each newly-created object of the given type. If type is null, then
+   * the listener will be called for each new object. 
    */
   public void registerNewObjectListener (NewObjectListener listener,
                                          Class<?> type)
@@ -189,7 +192,7 @@ public class DomainObjectReader
       // other method calls -- object should already exist
       Object inst = idMap.get(id);
       if (null == inst) {
-        log.error("Cannot find instance for id " + id);
+        log.warn("Cannot find instance for id " + id);
         return null;
       }
       Method[] methods = clazz.getMethods();
@@ -250,6 +253,13 @@ public class DomainObjectReader
     if (null == listeners)
       // try one up the tree to catch local subclasses like the default broker
       listeners = newObjectListeners.get(thing.getClass().getSuperclass());
+    if (null != listeners) {
+      for (NewObjectListener li : listeners) {
+        li.handleNewObject(thing);
+      }
+    }
+    // check for promiscuous listener
+    listeners = newObjectListeners.get(null);
     if (null != listeners) {
       for (NewObjectListener li : listeners) {
         li.handleNewObject(thing);
@@ -320,7 +330,7 @@ public class DomainObjectReader
         thing = cons.newInstance();
       }
       catch (Exception e) {
-        log.error("No default constructor for " + clazz.getName()
+        log.warn("No default constructor for " + clazz.getName()
                   + ": " + e.toString());
         return null;
       }
@@ -328,7 +338,8 @@ public class DomainObjectReader
       Field[] fields = new Field[fieldNames.length];
       Class<?>[] types = new Class<?>[fieldNames.length];
       for (int i = 0; i < fieldNames.length; i++) {
-        fields[i] = ReflectionUtils.findField(clazz, fieldNames[i]);
+        fields[i] = ReflectionUtils.findField(clazz,
+                                              resolveDoubleCaps(fieldNames[i]));
         if (null == fields[i]) {
           log.warn("No field in " + clazz.getName()
                    + " named " + fieldNames[i]);
@@ -362,6 +373,18 @@ public class DomainObjectReader
     return null;
   }
   
+  private String resolveDoubleCaps (String name)
+  {
+    // lowercase first char of field name with two initial caps
+    if (Character.isUpperCase(name.charAt(0)) &&
+            Character.isUpperCase(name.charAt(1))) {
+      char[] chars = name.toCharArray();
+      chars[0] = Character.toLowerCase(chars[0]);
+      return (String.valueOf(chars));
+    }
+    return name;
+  }
+
   // attempts to call a method by reconstructing its args and invoking it
   private boolean tryMethodCall (Object thing, Method method, String[] args)
   {
@@ -583,8 +606,20 @@ public class DomainObjectReader
         Instant value = Instant.parse(arg);
         return value;
        }
+      catch (IllegalArgumentException iae) {
+        // make Instant from Long
+        try {
+          Long msec = Long.parseLong(arg);
+          return new Instant(msec);
+        }
+        catch (Exception e) {
+          // Long parse failure
+          log.error("could not parse Long " + arg);
+          return null;
+        }
+      }
       catch (Exception e) {
-        // parse failure
+        // Instant parse failure
         log.error("could not parse Instant " + arg);
         return null;
       }

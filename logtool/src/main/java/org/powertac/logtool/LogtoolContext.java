@@ -15,6 +15,8 @@
  */
 package org.powertac.logtool;
 
+import org.powertac.logtool.common.DomainObjectReader;
+import org.powertac.logtool.common.NewObjectListener;
 import org.powertac.logtool.ifc.Analyzer;
 import org.springframework.context.support.AbstractApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
@@ -58,5 +60,15 @@ public abstract class LogtoolContext
   {
     LogtoolCore core = getCore();
     core.readStateLog(inputFile, analyzer);
+  }
+  
+  /**
+   * Passthrough for event registration
+   */
+  protected void registerNewObjectListener (NewObjectListener listener,
+                                            Class<?> type)
+  {
+    DomainObjectReader dor = (DomainObjectReader) getBean("reader");
+    dor.registerNewObjectListener(listener, type);
   }
 }

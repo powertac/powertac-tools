@@ -52,7 +52,6 @@ implements Analyzer
   static private Logger log = Logger.getLogger(MktPriceStats.class.getName());
 
   // service references
-  private DomainObjectReader dor;
   private TimeslotRepo timeslotRepo;
   private TimeService timeService;
 
@@ -93,12 +92,11 @@ implements Analyzer
   @Override
   public void setup ()
   {
-    dor = (DomainObjectReader) getBean("reader");
     timeslotRepo = (TimeslotRepo) getBean("timeslotRepo");
     timeService = (TimeService) getBean("timeService");
-    dor.registerNewObjectListener(new TimeslotUpdateHandler(),
+    registerNewObjectListener(new TimeslotUpdateHandler(),
                                   TimeslotUpdate.class);
-    dor.registerNewObjectListener(new ClearedTradeHandler(),
+    registerNewObjectListener(new ClearedTradeHandler(),
                                   ClearedTrade.class);
     ignoreCount = ignoreInitial;
     data = new TreeMap<Integer, ClearedTrade[]>();
@@ -118,18 +116,23 @@ implements Analyzer
   {
     for (Map.Entry<Integer, ClearedTrade[]> entry : data.entrySet()) {
       String delim = "";
-      for (ClearedTrade trade : entry.getValue()) {
-        if (null == trade) {
+      ClearedTrade[] trades = entry.getValue();
+      if (trades.length != 24)
+        log.error("short array " + trades.length);
+      for (int i = 0; i < trades.length; i++) {
+        if (null == trades[i]) {
           output.print(delim + "[0.0 0.0]");
         }
         else {
           output.format("%s[%.4f %.4f]", delim,
-                        trade.getExecutionMWh(), trade.getExecutionPrice());
+                        trades[i].getExecutionMWh(),
+                        trades[i].getExecutionPrice());
         }
         delim = " ";
       }
       output.println();
     }
+    output.close();
   }
 
   // -----------------------------------
