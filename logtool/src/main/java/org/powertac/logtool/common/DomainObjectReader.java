@@ -280,9 +280,13 @@ public class DomainObjectReader
         continue;
       // correct length of parameter list -
       // now try to resolve the types.
-      // Note that we take a greedy approach here - as soon as we find
-      // a match, we assume it's correct
-      params = resolveArgs(types, args);
+      // If we get a MissingDomainObject exception, keep going.
+      try {
+        params = resolveArgs(types, args);
+      }
+      catch (MissingDomainObject mdo) {
+        // ignore
+      }
       if (null == params)
         // no match
         continue;
