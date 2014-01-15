@@ -125,7 +125,6 @@ implements Analyzer
         System.out.println("null array for index " + index);
       }
       String delim = "";
-      System.out.println(speeds);
       for (int i = 0; i < speeds.length; i++) {
         data.format("%s%.2f", delim, speeds[i]);
         delim = " ";
