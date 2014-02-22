@@ -147,9 +147,12 @@ public class WsRMSEApp {
 		for (WsData.WeatherForecast wf : this.windSpeedForecasts.getWeatherForecasts()) {
 			int leadTime = wf.getId(); //id is same as lead time
 			float error = wf.getWindSPeedError();
+			boolean validError = wf.windSpeedObservationAvailable();
 			Set<Float> errorSet = this.mapLtErrorSet.get(leadTime);
 			if (errorSet != null) {
-				errorSet.add(error);
+				if (validError) {
+					errorSet.add(error);
+				}
 			} else {
 				System.out.println("Error: null value for lead time " + leadTime);
 			}

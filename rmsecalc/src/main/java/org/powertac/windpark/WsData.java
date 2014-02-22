@@ -187,6 +187,9 @@ public class WsData
 			return this.noObservation;
 		}
 		
+		public boolean windSpeedObservationAvailable() {
+			return !this.noObservation;
+		}
 		public float getWindSpeedObservation() {
 			return this.windSpeedObservation;
 		}
