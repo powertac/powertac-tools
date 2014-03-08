@@ -1,0 +1,17 @@
+#!/bin/bash
+# Pulls down hourly observations and 24-hr forecasts for a list
+# of locations
+
+locations=('chicago,il' 'minneapolis,mn' 'minot,nd' 'mason%20city,ia' 'tucson,az' 'el%20paso,tx' 'boulder,co' 'cheyenne,wy' 'rotterdam,nl')
+output=weather_records.json
+
+echo '-- observation:' `date` >>$output
+for loc in ${locations[@]}; do
+    echo '-- location:' $loc >>$output
+    wget -O tmp "http://api.aerisapi.com/observations/${loc}?client_id=k2dblnXBvHTqWJy4dKZDr&client_secret=OQMHAbaapWFsRKWp1ybZ2ZyHhycRPIJydt7LurMs&fields=ob.dateTimeISO,ob.tempC,ob.dewpointC,ob.pressureMB,ob.windKPH"
+    cat tmp >>$output
+    echo >>$output
+    wget -O tmp "http://api.aerisapi.com/forecasts/${loc}?filter=1hr&client_id=k2dblnXBvHTqWJy4dKZDr&client_secret=OQMHAbaapWFsRKWp1ybZ2ZyHhycRPIJydt7LurMs&limit=24&fields=periods.dateTimeISO,periods.tempC,periods.dewpointC,periods.sky,periods.windSpeedKPH"
+    cat tmp >>$output
+    echo >>$output
+done
