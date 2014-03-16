@@ -1,0 +1,78 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <name>scengen</name>
+  <url>http://www.powertac.org</url>
+
+  <parent>
+    <groupId>org.powertac</groupId>
+    <artifactId>server-master</artifactId>
+    <version>1.1.0-SNAPSHOT</version>
+    <relativePath />
+  </parent>
+
+  <artifactId>scengen</artifactId>
+  <description>
+    Wind Speed Forecast Error Scenario Generator using ARMA(1,1) model
+  </description>
+  <groupId>org.powertac</groupId>
+  <version>1.1.0-SNAPSHOT</version>
+  <packaging>jar</packaging>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <exec.args></exec.args>
+  </properties>
+
+  <!-- Sonatype OSS repo for resolving snapshot modules -->
+  <repositories>
+    <repository>
+      <id>sonatype</id>
+      <url>https://oss.sonatype.org/content/repositories/snapshots/</url>
+    </repository>
+  </repositories>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.googlecode.json-simple</groupId>
+      <artifactId>json-simple</artifactId>
+      <version>1.1.1</version>
+    </dependency>
+    <dependency>
+      <groupId>net.sf.jopt-simple</groupId>
+      <artifactId>jopt-simple</artifactId>
+      <version>4.6</version>
+    </dependency>
+    <dependency>
+      <groupId>joda-time</groupId>
+      <artifactId>joda-time</artifactId>
+      <version>2.3</version>
+    </dependency>
+  </dependencies>
+
+  <!-- The exec setup is for experimental purposes. The logtool core
+       is intended to be wrapped by a main class that extends
+       LogtoolContext and implements Analyzer -->
+  <build>
+    <finalName>scengen</finalName>
+    <plugins>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <version>1.2.1</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+          </execution>
+         </executions>
+        <configuration>
+          <executable>java</executable>
+          <commandlineArgs>-server -Xmx512m -classpath %classpath org.powertac.windpark.ScenGen ${exec.args}</commandlineArgs>
+        </configuration>
+      </plugin>
+    </plugins>
+   </build>
+</project>
