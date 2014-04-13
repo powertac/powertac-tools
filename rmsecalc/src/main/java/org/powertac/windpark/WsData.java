@@ -1,15 +1,17 @@
 package org.powertac.windpark;
 
 import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.Collections;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 //import java.util.HashSet;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
+
+import org.joda.time.DateTime;
+import org.joda.time.format.DateTimeFormat;
+import org.joda.time.format.DateTimeFormatter;
 
 import com.thoughtworks.xstream.annotations.XStreamAlias;
 import com.thoughtworks.xstream.annotations.XStreamAsAttribute;
@@ -19,6 +21,7 @@ import com.thoughtworks.xstream.annotations.XStreamOmitField;
 @XStreamAlias("data")
 public class WsData 
 {
+	public static final String dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ";
 	@XStreamAlias("weatherReport")
 	public static class WeatherReport implements Comparable<WeatherReport>
 	{	
@@ -31,18 +34,18 @@ public class WsData
 		private float  wspeed; 
 		
 		@XStreamOmitField
-		private Date date;
+		private DateTime date;
 				
 		public WeatherReport(String dt, float speed) throws ParseException {
 			this.dateString = dt;
-			SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm");
-			this.date = df.parse(dt);
+			DateTimeFormatter df = DateTimeFormat.forPattern(WsData.dateFormat);
+			this.date = df.parseDateTime(dt).withMinuteOfHour(0);
 			this.wspeed = speed;
 		}
 		
-		public void convertToDate() throws ParseException {
-			SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm");
-			this.date = df.parse(this.dateString);
+		public void convertToDate() {
+			DateTimeFormatter df = DateTimeFormat.forPattern(WsData.dateFormat);
+			this.date = df.parseDateTime(this.dateString).withMinuteOfHour(0);
 			return;
 		}
 
@@ -63,20 +66,14 @@ public class WsData
 		
 
 		public int compareTo (WeatherReport wr) {
-			Date myDate, hisDate;
-			SimpleDateFormat dtfmt = new SimpleDateFormat("yyyy-MM-dd HH:mm");
-			try {
-				myDate = dtfmt.parse(this.dateString);
-				hisDate = dtfmt.parse(wr.getDateString());
-				
-			} catch (ParseException e) {
-				e.printStackTrace();
-				return 0;
-			}
+			DateTime myDate, hisDate;
+			DateTimeFormatter dtfmt = DateTimeFormat.forPattern(WsData.dateFormat);
+			myDate = dtfmt.parseDateTime(this.dateString).withMinuteOfHour(0);
+			hisDate = dtfmt.parseDateTime(wr.getDateString());
 			
-			if (myDate.before(hisDate)) {
+			if (myDate.isBefore(hisDate)) {
 				return -1;
-			} else if (myDate.after(hisDate)) {
+			} else if (myDate.isAfter(hisDate)) {
 				return 1;
 				
 			} else {
@@ -85,7 +82,7 @@ public class WsData
 			
 		}
 		
-		public Date getDate() {
+		public DateTime getDate() {
 			return this.date;
 		}
 		
@@ -107,7 +104,7 @@ public class WsData
 		private String dateString;	
 		
 		@XStreamOmitField
-		private Date date;
+		private DateTime date;
 		
 		@XStreamAlias("id")
 		@XStreamAsAttribute
@@ -118,7 +115,11 @@ public class WsData
 		private String originString;
 		
 		@XStreamOmitField
-		private Date origin;
+		private DateTime origin;
+		
+		@XStreamAlias("temp")
+		@XStreamAsAttribute
+		private int temp;
 		
 		@XStreamAlias("windspeed")
 		@XStreamAsAttribute
@@ -133,24 +134,25 @@ public class WsData
 		@XStreamOmitField
 		private boolean noObservation = true;
 		
-		public WeatherForecast (String dt, int myId, String org, float spd) throws ParseException {
-			SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm");
-			this.date = df.parse(dt);
+		public WeatherForecast (String dt, int myId, String org, int tmp, float spd) throws ParseException {
+			DateTimeFormatter df = DateTimeFormat.forPattern(WsData.dateFormat);
+			this.date = df.parseDateTime(dt);
 			this.dateString = dt;
 			this.id = myId;
-			this.origin = df.parse(org);
+			this.origin = df.parseDateTime(org);
 			this.originString = org;
+			this.temp = tmp;
 			this.windspeed = spd;
 		}
 		
-		public void convertToDate() throws ParseException {
-			SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm");
-			this.date = df.parse(this.dateString);
-			this.origin = df.parse(this.originString);
+		public void convertToDate() {
+			DateTimeFormatter df = DateTimeFormat.forPattern(WsData.dateFormat);
+			this.date = df.parseDateTime(this.dateString);
+			this.origin = df.parseDateTime(this.originString);
 			return;
 		}
 		
-		public Date getDate() {
+		public DateTime getDate() {
 			return this.date;
 		}
 		
@@ -162,8 +164,18 @@ public class WsData
 			return this.id;
 		}
 		
-		public Date getOrigin() {
+		public int getLeadHours() {
+			long origSec = this.origin.getMillis() / 1000;
+			long fcstSec = this.date.getMillis() / 1000;
+			return (int) ((fcstSec - origSec) / 3600);
+		}
+		
+		public DateTime getOrigin() {
 			return this.origin;
+		}
+		
+		public int getTemp() {
+			return this.temp;
 		}
 		
 		public float getWindSpeed() {
@@ -217,28 +229,22 @@ public class WsData
 			}
 		}
 		public int compareTo (WeatherForecast wr) {
-			Date myDate, hisDate;
-			Date myOrigin, hisOrigin;
+			DateTime myDate, hisDate;
+			DateTime myOrigin, hisOrigin;
 			
-			SimpleDateFormat dtfmt = new SimpleDateFormat("yyyy-MM-dd HH:mm");
-			try {
-				myDate = dtfmt.parse(this.dateString);
-				hisDate = dtfmt.parse(wr.getDateString());
-				myOrigin = dtfmt.parse(this.originString);
-				hisOrigin = dtfmt.parse(wr.getOriginString());
-				
-			} catch (ParseException e) {
-				e.printStackTrace();
-				return 0;
-			}
+			DateTimeFormatter dtfmt = DateTimeFormat.forPattern(WsData.dateFormat);
+			myDate = dtfmt.parseDateTime(this.dateString);
+			hisDate = dtfmt.parseDateTime(wr.getDateString());
+			myOrigin = dtfmt.parseDateTime(this.originString);
+			hisOrigin = dtfmt.parseDateTime(wr.getOriginString());
 			
-			if (myOrigin.before(hisOrigin)) {
+			if (myOrigin.isBefore(hisOrigin)) {
 				return -1;
-			} else if (myOrigin.after(hisOrigin)) {
+			} else if (myOrigin.isAfter(hisOrigin)) {
 				return 1;
-			} else if (myDate.before(hisDate)) {
+			} else if (myDate.isBefore(hisDate)) {
 				return -1;
-			} else if (myDate.after(hisDate)) {
+			} else if (myDate.isAfter(hisDate)) {
 				return 1;				
 			} else {
 				return 0;
@@ -253,18 +259,18 @@ public class WsData
 		@XStreamImplicit
 		private SortedSet<WeatherReport> wReports = new TreeSet<WeatherReport>();
 		@XStreamOmitField
-		private Map<Date, Float> mapDateWindSpeed = null;
+		private Map<DateTime, Float> mapDateWindSpeed = null;
 		
 		public WeatherReports() {}
 		
 		public void bildMaps() {
-			this.mapDateWindSpeed = new HashMap<Date, Float>();
+			this.mapDateWindSpeed = new HashMap<DateTime, Float>();
 			for (WeatherReport wr : wReports) {
 				mapDateWindSpeed.put(wr.date, wr.wspeed);
 			}
 		}
 		
-		public float getWindSpeed(Date dt) {
+		public float getWindSpeed(DateTime dt) {
 			if (mapDateWindSpeed.containsKey(dt)) {
 				return mapDateWindSpeed.get(dt);
 			}
@@ -290,7 +296,7 @@ public class WsData
 			return Collections.unmodifiableSortedSet(wReports);
 		}
 		
-		public void convertToDate() throws ParseException {
+		public void convertToDate() {
 			for (WeatherReport wr : wReports) {
 				wr.convertToDate();
 			}
@@ -304,7 +310,7 @@ public class WsData
 	    
 	    public WeatherForecasts() {}
 	    
-	    public void convertToDate() throws ParseException {
+	    public void convertToDate() {
 	    	for (WeatherForecast wf : wForecasts) {
 	    		wf.convertToDate();
 	    	}
@@ -328,10 +334,10 @@ public class WsData
 		}
 		
 		public void calcWindSpeedForecastErrors(WeatherReports wrps) {
-			Date currDate = null;
+			DateTime currDate = null;
 			float currWspeed = 0;
 			for (WeatherForecast wf : wForecasts) {
-				Date forecastDate = wf.getDate();
+				DateTime forecastDate = wf.getDate();
 				if ((currDate == null) ||
 					(currDate.compareTo(forecastDate)!= 0)) {
 					currWspeed = wrps.getWindSpeed(forecastDate);
@@ -353,7 +359,7 @@ public class WsData
 		weatherForecasts = wfc;
 	}
 	
-	public void convertToDate() throws ParseException {
+	public void convertToDate() {
 		this.weatherReports.convertToDate();
 		this.weatherForecasts.convertToDate();
 		return;

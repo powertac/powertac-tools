@@ -51,6 +51,8 @@ public class WsRMSEApp {
 	    xstream.aliasField("id", WsData.WeatherForecast.class, "id");
 	    xstream.useAttributeFor(WsData.WeatherForecast.class, "originString");
 	    xstream.aliasField("origin", WsData.WeatherForecast.class, "originString");
+	    xstream.useAttributeFor(WsData.WeatherForecast.class, "temp");
+	    xstream.aliasField("temp", WsData.WeatherForecast.class, "temp");
 	    xstream.useAttributeFor(WsData.WeatherForecast.class, "windspeed");
 	    xstream.aliasField("windspeed", WsData.WeatherForecast.class, "windspeed");
 	    xstream.omitField(WsData.WeatherForecast.class, "date");
@@ -85,13 +87,7 @@ public class WsRMSEApp {
 			XStream xstream = getConfiguredXStream();
 			//build WsData object
 			WsData wsData = (WsData)xstream.fromXML(f);
-			//convert string dates to Date objects
-			try {
-				wsData.convertToDate();
-			} catch (ParseException ex) {
-				System.out.println("File Name: " + f.getName() + "\n" + ex.toString());
-				return;	
-			}	
+			wsData.convertToDate();	
 			int numrep = wsData.getWeatherReports().getWeatherReports().size();
 			int numfc = wsData.getWeatherForecasts().getWeatherForecasts().size();
 			if ((numrep < 24) || (numfc < 576)) {
@@ -113,6 +109,9 @@ public class WsRMSEApp {
 			
 		} // for each data file
 	
+		// check weather-forecast ids
+		myApp.checkWfIds();
+		
 		// calculate Wind Speed RMSE
 		myApp.calcWindSpeedRMSE();
 		
@@ -122,6 +121,37 @@ public class WsRMSEApp {
 		return;
 
 	} //main function
+	
+	private void checkWfIds() {
+		System.out.println("*** ID Check Started ***");
+		int badId = 0;
+		for (WsData.WeatherForecast wf: this.windSpeedForecasts.getWeatherForecasts()) {
+			long origMilliS = wf.getOrigin().getMillis();
+			long fcMilliS = wf.getDate().getMillis();
+			if (origMilliS % 1000 > 0) {
+				System.out.println("origin milisec not divisible by 1000");
+			}
+			if (fcMilliS % 1000 > 0) {
+				System.out.println("forecast date milisec not divisible by 1000");
+			}
+			long origSec = origMilliS /1000;
+			long fcSec = fcMilliS /1000;
+			long diffSec = fcSec - origSec;
+			if (diffSec % 3600 > 0) {
+				System.out.println("difference is not whole hours");
+			}
+			int idShdBe = (int) (diffSec / 3600);
+			
+			if (idShdBe != wf.getId()) {
+				badId++;
+				System.out.println("ID = " + wf.getId() + " extected id = " + idShdBe);
+				System.out.println("id not equal to what it should be");
+			}
+			
+		} //f0r each forecast
+		
+		System.out.println("Total number of bad IDs = " + badId);
+	}
 
 	private void addWsData(WsData wsd) {
 		this.windSpeedForecasts.addWeatherForecasts(wsd.getWeatherForecasts());
@@ -137,15 +167,19 @@ public class WsRMSEApp {
 		//calculate wind speed errors for all forecasts
 		this.windSpeedForecasts.calcWindSpeedForecastErrors(this.windSpeedObservations);
 		
-		//build empty map for lead times from 1 thru 24
-		for (int i = 0; i < 24; i++) {
+		//build empty map for lead times from 1 thru 50
+		for (int i = 0; i < 50; i++) {
 			this.mapLeadTimeRMSE.put(i+1, (float) 0.0);
 			this.mapLtErrorSet.put(i+1, new LinkedHashSet<Float>());
 		}
 		
 		// put all errors in the mapLtErrorSet
 		for (WsData.WeatherForecast wf : this.windSpeedForecasts.getWeatherForecasts()) {
-			int leadTime = wf.getId(); //id is same as lead time
+			int leadTime = wf.getLeadHours();
+			if (leadTime > 50) {
+				System.out.println("Lead Time greater than 50 hours found");
+				continue;
+			}
 			float error = wf.getWindSPeedError();
 			boolean validError = wf.windSpeedObservationAvailable();
 			Set<Float> errorSet = this.mapLtErrorSet.get(leadTime);
@@ -159,7 +193,7 @@ public class WsRMSEApp {
 		} //for each wind speed forecast
 		
 		//now for each lead time calculate RMSE
-		for (int i = 0; i < 24; i++) {
+		for (int i = 0; i < 50; i++) {
 			int key = i + 1;
 			Set<Float> errorSet = this.mapLtErrorSet.get(key);
 			if (errorSet != null) {
