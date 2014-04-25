@@ -39,13 +39,27 @@ public class WsData
 		public WeatherReport(String dt, float speed) throws ParseException {
 			this.dateString = dt;
 			DateTimeFormatter df = DateTimeFormat.forPattern(WsData.dateFormat);
-			this.date = df.parseDateTime(dt).withMinuteOfHour(0);
+			DateTime givenDateTime = df.parseDateTime(dt);
+			this.date = roundToHour(givenDateTime);
 			this.wspeed = speed;
+		}
+		
+		public static DateTime roundToHour(DateTime givenDateTime) {
+			DateTime prevHour = givenDateTime.withMinuteOfHour(0);
+			DateTime nextHour = prevHour.plusHours(1);
+			long milliSecToNextHour = nextHour.getMillis() - givenDateTime.getMillis();
+			long milliSecFromPrevHour = givenDateTime.getMillis() - prevHour.getMillis();
+			if (milliSecToNextHour < milliSecFromPrevHour) {
+				return nextHour;
+			} else {
+				return prevHour;
+			}	
 		}
 		
 		public void convertToDate() {
 			DateTimeFormatter df = DateTimeFormat.forPattern(WsData.dateFormat);
-			this.date = df.parseDateTime(this.dateString).withMinuteOfHour(0);
+			DateTime givenDateTime = df.parseDateTime(this.dateString);
+			this.date = roundToHour(givenDateTime);
 			return;
 		}
 
