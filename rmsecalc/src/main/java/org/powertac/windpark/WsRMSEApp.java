@@ -88,22 +88,7 @@ public class WsRMSEApp {
 			//build WsData object
 			WsData wsData = (WsData)xstream.fromXML(f);
 			wsData.convertToDate();	
-			int numrep = wsData.getWeatherReports().getWeatherReports().size();
-			int numfc = wsData.getWeatherForecasts().getWeatherForecasts().size();
-			if ((numrep < 24) || (numfc < 576)) {
-				System.out.println("====== " + filenum + " " +f.getName() + " =====");
-				String xmlstr = xstream.toXML(wsData);
-				try {	
-					FileWriter fw = new FileWriter(wsRmsePath + "/" + f.getName());
-					fw.write(xmlstr);
-					fw.write("\n");
-					fw.close();
-				} catch (IOException ex) {
-					System.out.println("IO ERROR: " + f.getName());
-					System.out.println(ex);
-				}
 
-			}
 			//add the WsData data in local collections
 			myApp.addWsData(wsData);
 			

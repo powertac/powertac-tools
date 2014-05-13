@@ -45,15 +45,7 @@ public class WsData
 		}
 		
 		public static DateTime roundToHour(DateTime givenDateTime) {
-			DateTime prevHour = givenDateTime.withMinuteOfHour(0);
-			DateTime nextHour = prevHour.plusHours(1);
-			long milliSecToNextHour = nextHour.getMillis() - givenDateTime.getMillis();
-			long milliSecFromPrevHour = givenDateTime.getMillis() - prevHour.getMillis();
-			if (milliSecToNextHour < milliSecFromPrevHour) {
-				return nextHour;
-			} else {
-				return prevHour;
-			}	
+			return givenDateTime.plusMinutes(30).withMinuteOfHour(0);	
 		}
 		
 		public void convertToDate() {
@@ -324,7 +316,7 @@ public class WsData
 	    
 	    public WeatherForecasts() {}
 	    
-	    public void convertToDate() {
+	    public void convertToDate1() {
 	    	for (WeatherForecast wf : wForecasts) {
 	    		wf.convertToDate();
 	    	}
@@ -347,20 +339,23 @@ public class WsData
 			return Collections.unmodifiableSortedSet(wForecasts);
 		}
 		
-		public void calcWindSpeedForecastErrors(WeatherReports wrps) {
-			DateTime currDate = null;
-			float currWspeed = 0;
-			for (WeatherForecast wf : wForecasts) {
-				DateTime forecastDate = wf.getDate();
-				if ((currDate == null) ||
-					(currDate.compareTo(forecastDate)!= 0)) {
-					currWspeed = wrps.getWindSpeed(forecastDate);
-					currDate = forecastDate;					
-				}
-				wf.setWindSpeedObservation(currWspeed); //this calculates the error too
-			} //for all weather forecasts
+		public void calcWindSpeedForecastErrors (WeatherReports wrps) {
+			
+			for (WeatherForecast wf : this.wForecasts) {
+				//get forecast date
+				DateTime forecastDateTime = wf.getDate();
+				if (forecastDateTime == null) continue;
+
+				//get observation for the origin
+				float observedWindSpeed = wrps.getWindSpeed(forecastDateTime);
+				if (observedWindSpeed < 0) continue;
+				
+				// set wind speed observation
+				wf.setWindSpeedObservation(observedWindSpeed);
+				
+			} //for each weather forecast	
 		}
-	}
+	
 	
 	@XStreamAlias("weatherReports")
 	private WeatherReports weatherReports;
@@ -375,7 +370,7 @@ public class WsData
 	
 	public void convertToDate() {
 		this.weatherReports.convertToDate();
-		this.weatherForecasts.convertToDate();
+		this.weatherForecasts.convertToDate1();
 		return;
 	}
 	
