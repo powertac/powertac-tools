@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<arma-param>
+    <location name="minneapolis">
+        <param alpha="0.0841"/>
+        <param beta="-0.2817"/>
+        <param sigmaz="1.413"/>
+    </location>
+    <location name="chicago">
+        <param alpha="-0.1177"/>
+        <param beta="-0.0881"/>
+        <param sigmaz="1.602"/>
+    </location>
+    <location name="minot">
+        <param alpha="0.0136"/>
+        <param beta="-0.0767"/>
+        <param sigmaz="1.6195"/>
+    </location>
+    <location name="mason-city">
+        <param alpha="-0.0492"/>
+        <param beta="-0.1915"/>
+        <param sigmaz="1.4099"/>
+    </location>
+</arma-param>
