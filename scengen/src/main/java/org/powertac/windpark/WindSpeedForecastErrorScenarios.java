@@ -38,7 +38,7 @@ import com.thoughtworks.xstream.annotations.XStreamImplicit;
  */
 @XStreamAlias("WindForecastErrorScenarios")
 public class WindSpeedForecastErrorScenarios {
-	private static String errorScenarioDataFile = "/tmp/wsrmse/WindSpeedForecastErrorScenarios.xml";
+	private static String errorScenarioDataFile = "/home/shashank/Downloads/WindSpeedForecastErrorScenariosMinneapolis.xml";
 	@XStreamImplicit
 	private SortedSet<Scenario> windSpeedForecastErrorScenarios = new TreeSet<Scenario>();
 

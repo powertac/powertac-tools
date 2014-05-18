@@ -355,7 +355,7 @@ public class WsData
 				
 			} //for each weather forecast	
 		}
-	
+	}
 	
 	@XStreamAlias("weatherReports")
 	private WeatherReports weatherReports;

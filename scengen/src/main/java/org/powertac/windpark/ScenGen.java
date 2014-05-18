@@ -11,7 +11,7 @@ import com.thoughtworks.xstream.XStream;
  */
 public class ScenGen {
 	
-	private static final String scenarioFile = "/tmp/wsrmse/WindSpeedScenarios.xml";
+	private static final String scenarioFile = "/home/shashank/Downloads/WindSpeedForecastErrorScenMasonCity.xml";
 	
 	private int numberOfScenarios;
 	private double alpha;
@@ -86,7 +86,7 @@ public class ScenGen {
 		// Read ARMA Series Parameters
 		// TODO: read from XML file
 		
-		ScenGen scenGenerator = new ScenGen(5000, 0.3, 0.2, 0.67);
+		ScenGen scenGenerator = new ScenGen(10000, -0.0492, -0.1915, 1.4099);
 		
 		scenGenerator.generate();
 		
