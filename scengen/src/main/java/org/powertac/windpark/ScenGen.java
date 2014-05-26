@@ -1,9 +1,13 @@
 package org.powertac.windpark;
 
-import java.io.FileWriter;
-import java.io.IOException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import org.powertac.windpark.Scenario.ScenarioValue;
 
-import com.thoughtworks.xstream.XStream;
+import joptsimple.OptionParser;
+import joptsimple.OptionSet;
+import joptsimple.OptionSpec;
 
 /**
  * Scenario Generator This utility generates wind speed forecast error scenarios
@@ -11,21 +15,23 @@ import com.thoughtworks.xstream.XStream;
  */
 public class ScenGen {
 	
-	private static final String scenarioFile = "/home/shashank/Downloads/WindSpeedForecastErrorScenMasonCity.xml";
+	private static final String errorScenarioFile = "/home/shashank/Downloads/WindSpeedForecastErrorScenMasonCity.xml";
+	private static final String wsForecastFile = "/home/shashank/Downloads/minneapolis/minneapolis1.xml";
+	private static final String wpScenarioFile = "/home/shashank/Downloads/WindPowerScenarios.xml";
 	
 	private int numberOfScenarios;
 	private double alpha;
 	private double beta;
 	private double sigmaz;
 
-	WindSpeedForecastErrorScenarios windSpeedForecastErrorScenarios;
+	Scenarios windSpeedForecastErrorScenarios;
 	
 	public ScenGen(int num, double a, double b, double s) {
 		this.numberOfScenarios = num;
 		this.alpha = a;
 		this.beta = b;
 		this.sigmaz = s;
-		windSpeedForecastErrorScenarios = new WindSpeedForecastErrorScenarios();
+		windSpeedForecastErrorScenarios = new Scenarios();
 	}
 	
 	public void generate() {
@@ -62,22 +68,6 @@ public class ScenGen {
 		
 	}
 	
-	public void writeToXML() {
-		XStream xstream = WindSpeedForecastErrorScenarios.getConfiguredXStream();
-		String xmlStr = xstream.toXML(this.windSpeedForecastErrorScenarios);
-		String fileName = scenarioFile;
-		
-		try {
-			FileWriter fw = new FileWriter(fileName);
-			fw.write(xmlStr);
-			fw.write("\n");
-			fw.close();
-		} catch (IOException ex) {
-			System.out.println(ex);
-		}
-		
-	} //writeToXML()
-	
 	/**
 	 * entry point for Scenario Generator Application
 	 * @param args
@@ -85,16 +75,100 @@ public class ScenGen {
 	public static void main(String[] args) {
 		// Read ARMA Series Parameters
 		// TODO: read from XML file
+		OptionParser optParser = new OptionParser();
 		
-		ScenGen scenGenerator = new ScenGen(10000, -0.0492, -0.1915, 1.4099);
+		OptionSpec<Integer> optScen = optParser.accepts("num").withRequiredArg().ofType(Integer.class);
+		OptionSpec<Double> optA = optParser.accepts("alpha").withRequiredArg().ofType(Double.class);
+		OptionSpec<Double> optB = optParser.accepts("beta").withRequiredArg().ofType(Double.class);
+		OptionSpec<Double> optS = optParser.accepts("sigma").withRequiredArg().ofType(Double.class);
 		
-		scenGenerator.generate();
+		OptionSet optSet = optParser.parse(args);
+		double a = 0; 
+		double b = 0; 
+		double s = 0; 
+		int scenNum = 10000; //default scenario number
+		if (optSet.hasArgument(optScen)) {
+			scenNum = optSet.valueOf(optScen);
+		}
+		if (optSet.hasArgument(optA) && optSet.hasArgument(optB) && optSet.hasArgument(optS)) {
+			a = optSet.valueOf(optA);
+			b = optSet.valueOf(optB);
+			s = optSet.valueOf(optS);
+			if (Math.abs(a) < 0.0000000001 || Math.abs(b) < 0.0000000001 || Math.abs(s) < 0.0000000001) {
+				System.out.println("Invalid Arguments");
+				return;
+			}
+			ScenGen scenGenerator = new ScenGen(scenNum, a, b, s);
+			scenGenerator.generate();
+			scenGenerator.windSpeedForecastErrorScenarios.writeToXML(errorScenarioFile);
+		}
 		
-		scenGenerator.writeToXML();
+		//read wind speed forecast error scenario file
+		Scenarios errorScen = Scenarios.getScenarios(errorScenarioFile);
+		
+		//read wind speed forecast (just one file supported for now)
+		WsData windSpeedForecastData = WsData.getWsData(wsForecastFile);
+		
+		//build lead hour to wind speed forecast map
+		Map<Integer, Double> mapLeadHourToWindSpeed = new HashMap<Integer, Double>();
+		Map<Integer, Double> mapLeadHourToTemp = new HashMap<Integer, Double>();
+		for (int i = 0; i < 24; i++) {
+			double wspeed = windSpeedForecastData.getForecastWindSpeed(i+1);
+			double temp   = windSpeedForecastData.getForecastTemperature(i+1);
+			if (wspeed < -9999.0) {
+				wspeed = 0;
+				temp = 0;
+			}
+			mapLeadHourToWindSpeed.put(i+1, wspeed);
+			mapLeadHourToTemp.put(i+1, temp);
+		}
+		
+		Scenarios windSpeedScenarios = new Scenarios();
+		
+		//for each error scenario, generate wind speed scenario
+		for (Scenario es : errorScen.getScenarios()) {
+			double p = es.getProbability();
+			int sn = es.getScenarioNumber();
+			List<ScenarioValue> svs = es.getValueList();
+			Scenario windSpeedForecastScenario = new Scenario(sn, p);
+			for (ScenarioValue sv : svs) {
+				int hr = sv.getHour();
+				double err = sv.getValue();
+				// get wind speed forecast value for this lead hour
+				double windSpeedValue = mapLeadHourToWindSpeed.get(hr) + err;
+				ScenarioValue wsScenVal = new ScenarioValue(hr,windSpeedValue);
+				windSpeedForecastScenario.addValue(wsScenVal);
+			} //for each hour in the scenario
+			windSpeedScenarios.addScenario(windSpeedForecastScenario);
+		} //for each scenario
+		
+		//for each wind speed scenario compute wind power output scenario
+		Scenarios powerOutputScenarios = new Scenarios();
+		WindPark wpark = new WindPark(); //create a wind park instance t oget output
+		for (Scenario wsp: windSpeedScenarios.getScenarios()) {
+			double p = wsp.getProbability();
+			int sn = wsp.getScenarioNumber();
+			List<ScenarioValue> svs = wsp.getValueList();
+			Scenario powerOutputScenario = new Scenario(sn, p);
+			for (ScenarioValue sv: svs) {
+				int hr = sv.getHour();
+				double wspForecast = sv.getValue();
+				double temperature = mapLeadHourToTemp.get(hr);
+				double windParkOutput = wpark.getPowerOutput(temperature, wspForecast);
+				ScenarioValue wpScenVal = new ScenarioValue(hr, windParkOutput);
+				powerOutputScenario.addValue(wpScenVal);
+			}
+			powerOutputScenarios.addScenario(powerOutputScenario);
+		}
+		
+		//write wind power output scenarios to a file
+		powerOutputScenarios.writeToXML(wpScenarioFile);
 		
 		System.out.println("======= Program Completed ============");
 		
 		return;
 
 	} // main
+	
+	
 } //class ScenGen
