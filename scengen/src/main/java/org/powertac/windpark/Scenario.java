@@ -104,7 +104,7 @@ public class Scenario implements Comparable<Scenario> {
 	}
 
 	public void createValueList() {
-		if (!values.isEmpty()) {
+		if (!values.isEmpty() && valueList.isEmpty()) {
 			valueList.addAll(values);
 		}
 	}

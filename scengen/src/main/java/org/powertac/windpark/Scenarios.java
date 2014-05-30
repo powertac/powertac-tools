@@ -54,6 +54,7 @@ public class Scenarios
 
   public boolean addScenario (Scenario sco)
   {
+    sco.createValueList();
     return scenarioSet.add(sco);
   }
 
@@ -72,7 +73,7 @@ public class Scenarios
     xstream.alias("Scenario", Scenario.class);
     xstream.alias("Scenarios", Scenarios.class);
     xstream.alias("Value", Scenario.ScenarioValue.class);
-    xstream.addImplicitCollection(Scenarios.class, "Scenarios");
+    xstream.addImplicitCollection(Scenarios.class, "scenarioSet");
     xstream.addImplicitCollection(Scenario.class, "values");
     xstream.useAttributeFor(Scenario.class, "scenarioNumber");
     xstream.aliasField("id", Scenario.class, "scenarioNumber");

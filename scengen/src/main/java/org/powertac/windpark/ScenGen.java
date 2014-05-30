@@ -15,9 +15,9 @@ import joptsimple.OptionSpec;
  */
 public class ScenGen {
 	
-	private static final String errorScenarioFile = "/home/shashank/Downloads/WindSpeedForecastErrorScenMasonCity.xml";
-	private static final String wsForecastFile = "/home/shashank/Downloads/minneapolis/minneapolis1.xml";
-	private static final String wpScenarioFile = "/home/shashank/Downloads/WindPowerScenarios.xml";
+	private static final String errorScenarioFile = "/home/shashank/Downloads/WindSpeedForecastErrorScenMinneapolis.xml";
+	private static final String wsForecastFile = "/home/shashank/Downloads/minneapolisForecast.xml";
+	private static final String wpScenarioFile = "/home/shashank/Downloads/minneapolisWindPowerScenarios.xml";
 	
 	private int numberOfScenarios;
 	private double alpha;
@@ -108,6 +108,11 @@ public class ScenGen {
 		
 		//read wind speed forecast (just one file supported for now)
 		WsData windSpeedForecastData = WsData.getWsData(wsForecastFile);
+		
+		if (windSpeedForecastData == null) {
+			System.out.println("Wind Forecast Data is not available");
+			return;
+		}
 		
 		//build lead hour to wind speed forecast map
 		Map<Integer, Double> mapLeadHourToWindSpeed = new HashMap<Integer, Double>();
