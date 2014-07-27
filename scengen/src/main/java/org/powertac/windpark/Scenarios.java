@@ -81,6 +81,7 @@ public class Scenarios
     xstream.useAttributeFor(Scenario.ScenarioValue.class, "hour");
     xstream.useAttributeFor(Scenario.ScenarioValue.class, "value"); 
     xstream.aliasField("error", Scenario.ScenarioValue.class, "value");
+    xstream.omitField(Scenario.class, "valueList");
     return xstream;
   }
   
