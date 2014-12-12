@@ -7,3 +7,8 @@ After compiling, all of these examples are run as
 `mvn exec:exec -Dexec.args="class-name input-file output-file"`
 
 where classname is the name of the main class you want to run.
+
+If you don't want to unpack that compressed tar file containing the state log, you can pipe it from tar into your analyzer, as
+
+`tar xzfO game-3-sim-logs.tar.gz log/powertac-sim-3.state | mvn exec:exec -Dexec.args="class-name - output-file"`
+

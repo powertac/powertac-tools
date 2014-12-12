@@ -77,7 +77,7 @@ public class DomainObjectReader
     substitutes = new HashMap<String, Class<?>>();
     substitutes.put("org.powertac.du.DefaultBrokerService$LocalBroker",
                     DefaultBroker.class);
-    
+
     // set up the ignore list
     ignores = new HashSet<String>();
     ignores.add("org.powertac.common.Tariff");
@@ -87,6 +87,7 @@ public class DomainObjectReader
     ignores.add("org.powertac.common.msg.SimResume");
     ignores.add("org.powertac.common.msg.PauseRequest");
     ignores.add("org.powertac.common.msg.PauseRelease");
+    ignores.add("org.powertac.common.RandomSeed");
     
     // set up listener list
     newObjectListeners = new HashMap<Class<?>, ArrayList<NewObjectListener>>();
@@ -192,7 +193,8 @@ public class DomainObjectReader
       // other method calls -- object should already exist
       Object inst = idMap.get(id);
       if (null == inst) {
-        log.warn("Cannot find instance for id " + id);
+        log.warn("Cannot find instance for id " + id
+                 + " of type " + clazz.getCanonicalName());
         return null;
       }
       Method[] methods = clazz.getMethods();
@@ -420,7 +422,8 @@ public class DomainObjectReader
       return true;
     }
     catch (Exception e) {
-      log.error("Exception calling method " + method.getName()
+      log.error("Exception calling method " + thing.getClass().getName()
+                + "." + method.getName()
                 + " on args " + args);
     }
     return false;

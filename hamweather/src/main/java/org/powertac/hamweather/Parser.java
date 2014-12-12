@@ -16,32 +16,11 @@
 package org.powertac.hamweather;
 
 import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
-import java.io.Writer;
-import java.text.DateFormat;
-import java.text.ParseException;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.transform.OutputKeys;
-import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerConfigurationException;
-import javax.xml.transform.TransformerException;
-import javax.xml.transform.TransformerFactory;
-import javax.xml.transform.dom.DOMSource;
-import javax.xml.transform.stream.StreamResult;
 
 import org.joda.time.DateTime;
 import org.joda.time.format.DateTimeFormat;
@@ -50,9 +29,6 @@ import org.joda.time.format.ISODateTimeFormat;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
@@ -70,17 +46,18 @@ public class Parser
 {
   
   private String inputFile;
-  private String outputFile;
   private String location;
-  private Integer batchStartHour = null; // if non-null, restricts batch start
-  
+
   private enum State {OBS, LOC, JSON_OB, JSON_FCST}
   private static final int MAX_INTERVAL = 60 * 65 * 1000;
   private static final int FORECAST_HORIZON = 24;
+  private static final int HOUR = 3600 * 1000;
 
   private DateTimeFormatter iso;
   private OutputStructure output;
-  
+
+  private Integer batchStartHour = null; // if non-null, restricts batch start
+
   /**
    * Reads the command-line, then the input JSON file. Extracted weather data
    * is then dumped to the output file in xml format in batches.
@@ -104,19 +81,27 @@ public class Parser
       parser.accepts("json").withRequiredArg().ofType(String.class).required();
     OptionSpec<String> xmlOption =
       parser.accepts("xml").withRequiredArg().ofType(String.class).required();
+    OptionSpec<String> errOption =
+        parser.accepts("err").withRequiredArg().ofType(String.class).required();
 
     OptionSet options = parser.parse(args);
     location = options.valueOf(locationOption);
     inputFile = options.valueOf(jsonOption);
-    outputFile = options.valueOf(xmlOption);
     if (options.has("start-hour")) {
       batchStartHour = options.valueOf(startOption);
+    }
+    if (options.has(xmlOption)) {
+      output = new XmlOutputStructure();
+      output.setOutputFile(options.valueOf(xmlOption));
+      output.setBatchStartHour(batchStartHour);
+    }
+    else if (options.has(errOption)) {
+      output = new WindErrOutput();
     }
   }
   
   public void processFiles ()
   {
-    output = new OutputStructure();
     try {
       BufferedReader in = new BufferedReader(new FileReader(inputFile));
       Pattern observation =
@@ -239,15 +224,12 @@ public class Parser
       in.close();
     }
     catch (FileNotFoundException e) {
-      // TODO Auto-generated catch block
       e.printStackTrace();
     }
     catch (IOException e) {
-      // TODO Auto-generated catch block
       e.printStackTrace();
     }
     catch (org.json.simple.parser.ParseException e) {
-      // TODO Auto-generated catch block
       e.printStackTrace();
     }
   }
@@ -277,247 +259,6 @@ public class Parser
     Long sky = (Long) forecast.get("sky");
     Long windKPH = (Long) forecast.get("windSpeedKPH");
     output.addForecast(fcTime, index, hour, temp, dewpoint, sky, windKPH);
-
   }
 
-  /**
-   * Builds batches of weather reports and corresponding forecasts.
-   * Each batch is 24h of data and the corresponding 24h of 24h forecasts.
-   * Incomplete batches are discarded.
-   * @author jcollins
-   */
-  static enum XmlState {WAITING, GATHERING}
-  static final double KPH_MPS = 1000.0 / 3600.0;
-  static final int HOUR = 3600 * 1000;
-  static final int BLOCKSIZE = 24;
-
-  class OutputStructure
-  {
-    XmlState state = XmlState.WAITING;
-    DateTime start = null;
-    ArrayList<Observation> observations;
-    ArrayList<Forecast> forecasts;
-    
-    Document doc;
-    Element rootElement;
-
-    OutputStructure ()
-    {
-      observations = new ArrayList<Observation>();
-      forecasts = new ArrayList<Forecast>();
-      DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
-      DocumentBuilder docBuilder;
-      try {
-        docBuilder = docFactory.newDocumentBuilder();
-
-        // Root element
-        doc = docBuilder.newDocument();
-        doc.setXmlStandalone(true);
-        rootElement = doc.createElement("data");
-        doc.appendChild(rootElement);
-      }
-      catch (ParserConfigurationException e) {
-        // TODO Auto-generated catch block
-        e.printStackTrace();
-      }
-    }
-
-    /**
-     * adds an observation, starting a new block if necessary.
-     * discards accumulated data and starts over in case there's a gap
-     * in the sequence.
-     */
-    void addObservation (DateTime when, Long temp, Long dewpoint,
-                         Long pressure, Long windKPH)
-    {
-      startMaybe(when);
-      if (state == XmlState.GATHERING) {
-        if (observations.size() == BLOCKSIZE) {
-          // write out and re-initialize
-          // this is here because we have to check after gathering up the
-          // forecasts from the previous observation.
-          buildBlock();
-          state = XmlState.WAITING;
-          startMaybe(when);
-        }
-        else if (skipped(when)) {
-          // we've lost data - start over
-          state = XmlState.WAITING;
-          startMaybe(when);
-          if (state == XmlState.WAITING)
-            // discard and wait for start of next block
-            return;
-        }
-        observations.add(new Observation(when, temp, dewpoint, pressure,
-                                         windKPH * KPH_MPS));
-      }
-    }
-
-    /**
-     * Adds a forecast to the current block.
-     */
-    void addForecast (DateTime when, int index, DateTime hour, Long temp,
-                      Long dewpoint, Long sky, Long windKPH)
-    {
-      if (state == XmlState.GATHERING) {
-        forecasts.add(new Forecast(when, index, hour, temp,
-                                   dewpoint, windKPH * KPH_MPS));
-      }
-    }
-
-    /**
-     * Aborts a set due to missing forecast
-     */
-    void forecastMissing ()
-    {
-      state = XmlState.WAITING;
-    }
-
-    /**
-     * Writes the xml to the output file
-     */
-    void write()
-    {
-      FileOutputStream out;
-      try {
-        out = new FileOutputStream(new File(outputFile));
-        TransformerFactory tFactory = TransformerFactory.newInstance();
-        Transformer transformer = tFactory.newTransformer();
-        transformer.setOutputProperty(OutputKeys.INDENT, "yes");
-
-        DOMSource source = new DOMSource(doc);
-        StreamResult result = new StreamResult(out);
-        transformer.transform(source, result);
-        out.close();
-      }
-      catch (FileNotFoundException e) {
-        // TODO Auto-generated catch block
-        e.printStackTrace();
-      }
-      catch (TransformerConfigurationException e) {
-        // TODO Auto-generated catch block
-        e.printStackTrace();
-      }
-      catch (TransformerException e) {
-        // TODO Auto-generated catch block
-        e.printStackTrace();
-      }
-      catch (IOException e) {
-        // TODO Auto-generated catch block
-        e.printStackTrace();
-      }
-    }
-
-    // If it's time to start, then re-initialize
-    private void startMaybe (DateTime current)
-    {
-      if (state == XmlState.GATHERING)
-        return;
-      if (state == XmlState.WAITING) {
-        if (timeToStart(current)) {
-          start = current;
-          state = XmlState.GATHERING;
-          observations.clear();
-          forecasts.clear();
-        }
-      }
-      else {
-        System.out.println("Bogus state " + state);
-      }
-    }
-
-    private boolean timeToStart (DateTime current)
-    {
-      if (null == batchStartHour)
-        return true;
-      int hour = current.hourOfDay().get();
-      if (current.minuteOfHour().get() >= 30)
-        hour += 1;
-      if (hour == batchStartHour)
-        return true;
-      return false;
-    }
-
-    private boolean skipped(DateTime when)
-    {
-      if (observations.size() == 0)
-        return false;
-      Observation last = observations.get(observations.size() - 1);
-      DateTime fence = last.when.plus(HOUR + HOUR/2);
-      if (when.isAfter(fence)) {
-        System.out.println("Observation skipped at " + iso.print(fence));
-        return true;
-      }
-      return false;
-    }
-
-    private void buildBlock ()
-    {
-      // weatherReports elements
-      Element weatherReports = doc.createElement("weatherReports");
-      rootElement.appendChild(weatherReports);
-
-      for (Observation weather: observations) {
-        Element weatherReport = doc.createElement("weatherReport");
-        weatherReport.setAttribute("date", weather.when.toString(iso));
-        weatherReport.setAttribute("windspeed", weather.windMPS.toString());
-        weatherReports.appendChild(weatherReport);
-      }
-
-      // weatherForecasts elements
-      Element weatherForecasts = doc.createElement("weatherForecasts");
-      rootElement.appendChild(weatherForecasts);
-
-      for (Forecast forecast: forecasts) {
-        Element weatherForecast = doc.createElement("weatherForecast");
-        weatherForecast.setAttribute("date", forecast.when.toString(iso));
-        weatherForecast.setAttribute("id", forecast.id.toString());
-        weatherForecast.setAttribute("origin", forecast.origin.toString(iso));
-        weatherForecast.setAttribute("temp", forecast.temp.toString());
-        weatherForecast.setAttribute("windspeed", forecast.windMPS.toString());
-        weatherForecasts.appendChild(weatherForecast);
-      }
-    }
-
-    // Data structures
-    class Observation
-    {
-      DateTime when;
-      Long temp;
-      Long dewpoint;
-      Long pressure;
-      Double windMPS;
-
-      Observation (DateTime when, Long temp, Long dewpoint,
-                          Long pressure, double windMPS)
-      {
-        this.when = when;
-        this.temp = temp;
-        this.dewpoint = dewpoint;
-        this.pressure = pressure;
-        this.windMPS = windMPS;
-      }
-    }
-
-    class Forecast
-    {
-      DateTime when;
-      Integer id;
-      DateTime origin;
-      Long temp;
-      Long dewpoint;
-      Double windMPS;
-
-      Forecast (DateTime when, int id, DateTime origin, Long temp,
-                Long dewpoint, Double windMPS)
-      {
-        this.when = when;
-        this.id = id;
-        this.origin = origin;
-        this.temp = temp;
-        this.dewpoint = dewpoint;
-        this.windMPS = windMPS;
-      }
-    }
-  }
 }
