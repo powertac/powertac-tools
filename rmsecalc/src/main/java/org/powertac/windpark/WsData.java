@@ -39,13 +39,19 @@ public class WsData
 		public WeatherReport(String dt, float speed) throws ParseException {
 			this.dateString = dt;
 			DateTimeFormatter df = DateTimeFormat.forPattern(WsData.dateFormat);
-			this.date = df.parseDateTime(dt).withMinuteOfHour(0);
+			DateTime givenDateTime = df.parseDateTime(dt);
+			this.date = roundToHour(givenDateTime);
 			this.wspeed = speed;
+		}
+		
+		public static DateTime roundToHour(DateTime givenDateTime) {
+			return givenDateTime.plusMinutes(30).withMinuteOfHour(0);	
 		}
 		
 		public void convertToDate() {
 			DateTimeFormatter df = DateTimeFormat.forPattern(WsData.dateFormat);
-			this.date = df.parseDateTime(this.dateString).withMinuteOfHour(0);
+			DateTime givenDateTime = df.parseDateTime(this.dateString);
+			this.date = roundToHour(givenDateTime);
 			return;
 		}
 
@@ -310,7 +316,7 @@ public class WsData
 	    
 	    public WeatherForecasts() {}
 	    
-	    public void convertToDate() {
+	    public void convertToDate1() {
 	    	for (WeatherForecast wf : wForecasts) {
 	    		wf.convertToDate();
 	    	}
@@ -333,18 +339,21 @@ public class WsData
 			return Collections.unmodifiableSortedSet(wForecasts);
 		}
 		
-		public void calcWindSpeedForecastErrors(WeatherReports wrps) {
-			DateTime currDate = null;
-			float currWspeed = 0;
-			for (WeatherForecast wf : wForecasts) {
-				DateTime forecastDate = wf.getDate();
-				if ((currDate == null) ||
-					(currDate.compareTo(forecastDate)!= 0)) {
-					currWspeed = wrps.getWindSpeed(forecastDate);
-					currDate = forecastDate;					
-				}
-				wf.setWindSpeedObservation(currWspeed); //this calculates the error too
-			} //for all weather forecasts
+		public void calcWindSpeedForecastErrors (WeatherReports wrps) {
+			
+			for (WeatherForecast wf : this.wForecasts) {
+				//get forecast date
+				DateTime forecastDateTime = wf.getDate();
+				if (forecastDateTime == null) continue;
+
+				//get observation for the origin
+				float observedWindSpeed = wrps.getWindSpeed(forecastDateTime);
+				if (observedWindSpeed < 0) continue;
+				
+				// set wind speed observation
+				wf.setWindSpeedObservation(observedWindSpeed);
+				
+			} //for each weather forecast	
 		}
 	}
 	
@@ -361,7 +370,7 @@ public class WsData
 	
 	public void convertToDate() {
 		this.weatherReports.convertToDate();
-		this.weatherForecasts.convertToDate();
+		this.weatherForecasts.convertToDate1();
 		return;
 	}
 	
