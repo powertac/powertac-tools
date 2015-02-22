@@ -20,6 +20,8 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -85,24 +87,38 @@ public class LogtoolCore
   }
 
   /**
-   * Reads the given state-log file using the DomainObjectReader
+   * Reads the given state-log file using the DomainObjectReader.
+   * If a filename is given, we assume it names a state log file.
+   * If filename is "-" or null, then we assume the state log is
+   * on standard-input. This allows for piping the input from
+   * a compressed archive.
    */
   public void readStateLog (String filename, List<Analyzer> tools)
   {
-    File input = new File(filename);
+    Reader inputReader;
     String line = null;
-    if (!input.canRead()) {
-      System.out.println("Cannot read file " + filename);
-      return;
-    }
-    log.info("Reading file " + filename);    
     try {
+      if (null == filename || "-".equals(filename)) {
+        // read from standard input
+        inputReader = new InputStreamReader(System.in);
+        filename = "standard input";
+        log.info("Reading from standard input");
+      }
+      else {
+        // explicit filename given
+        File input = new File(filename);
+        if (!input.canRead()) {
+          System.out.println("Cannot read file " + filename);
+          return;
+        }
+        inputReader = new FileReader(input);
+        log.info("Reading file " + filename);
+      }
       builder.setup();
-      for (Analyzer tool : tools) {
+      for (Analyzer tool: tools) {
         tool.setup();
       }
-      BufferedReader in =
-              new BufferedReader(new FileReader(input));
+      BufferedReader in = new BufferedReader(inputReader);
       while (true) {
         line = in.readLine();
         if (null == line)
@@ -110,7 +126,7 @@ public class LogtoolCore
         reader.readObject(line);
       }
       builder.report();
-      for (Analyzer tool : tools) {
+      for (Analyzer tool: tools) {
         tool.report();
       }
     }
