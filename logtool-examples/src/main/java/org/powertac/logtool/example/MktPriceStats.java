@@ -33,7 +33,7 @@ import org.powertac.logtool.common.NewObjectListener;
 import org.powertac.logtool.ifc.Analyzer;
 
 /**
- * Logtool Analyzer that reads ClearedTrade instances as the arrive and
+ * Logtool Analyzer that reads ClearedTrade instances as they arrive and
  * builds an array for each timeslot giving all the market clearings for
  * that timeslot, indexed by leadtime. The output data file has one 
  * line/timeslot formatted as<br>
