@@ -119,10 +119,14 @@ public class LogtoolCore
         tool.setup();
       }
       BufferedReader in = new BufferedReader(inputReader);
+      int lineNumber = 0;
       while (true) {
         line = in.readLine();
-        if (null == line)
+        if (null == line) {
+          log.info("Last line " + lineNumber);
           break;
+        }
+        lineNumber += 1;
         reader.readObject(line);
       }
       builder.report();

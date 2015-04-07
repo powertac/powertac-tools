@@ -31,6 +31,7 @@ import java.util.List;
 import org.apache.log4j.Logger;
 import org.joda.time.Instant;
 import org.powertac.common.TimeService;
+import org.powertac.common.msg.BalanceReport;
 import org.powertac.common.state.Domain;
 import org.powertac.du.DefaultBroker;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,6 +58,7 @@ public class DomainObjectReader
   HashMap<Class<?>, Class<?>> ifImplementors;
   HashMap<String, Class<?>> substitutes;
   HashSet<String> ignores;
+  HashSet<Class> noIdTypes;
   
   // listeners
   HashMap<Class<?>, ArrayList<NewObjectListener>> newObjectListeners;
@@ -88,7 +90,13 @@ public class DomainObjectReader
     ignores.add("org.powertac.common.msg.PauseRequest");
     ignores.add("org.powertac.common.msg.PauseRelease");
     ignores.add("org.powertac.common.RandomSeed");
-    
+    ignores.add("org.powertac.factoredcustomer.DefaultUtilityOptimizer$DummyTariffSubscription");
+
+    // set up the no-id list
+    noIdTypes = new HashSet<Class>();
+    noIdTypes.add(TimeService.class);
+    noIdTypes.add(BalanceReport.class);
+
     // set up listener list
     newObjectListeners = new HashMap<Class<?>, ArrayList<NewObjectListener>>();
   }
@@ -129,7 +137,7 @@ public class DomainObjectReader
     String[] tokens = body.split("::");
     Class<?> clazz;
     if (ignores.contains(tokens[0])) {
-      log.info("ignoring " + tokens[0]);
+      //log.info("ignoring " + tokens[0]);
       return null;
     }
     try {
@@ -138,12 +146,12 @@ public class DomainObjectReader
     catch (ClassNotFoundException e) {
       Class<?> subst = substitutes.get(tokens[0]);
       if (null == subst) {
-        log.error("class " + tokens[0] + " not found");
+        log.warn("class " + tokens[0] + " not found");
         return null;
       }
       else {
         clazz = subst;
-        log.info("substituting " + clazz.getName() + " for " + tokens[0]);
+        //log.info("substituting " + clazz.getName() + " for " + tokens[0]);
       }
     }
 
@@ -155,11 +163,15 @@ public class DomainObjectReader
       if (clazz == TimeService.class) {
         // normal case - timeService does not have an id
         updateTime(tokens[3]);
+        return null;
+      }
+      else if (noIdTypes.contains(clazz)) {
+        id = 0;
       }
       else {
         log.debug("Number format exception reading id");
+        return null;
       }
-      return null;
     }
     String methodName = tokens[2];
     log.debug("methodName=" + methodName);
@@ -169,8 +181,10 @@ public class DomainObjectReader
               constructInstance(clazz, Arrays.copyOfRange(tokens, 3,
                                                           tokens.length));
       if (null != newInst) {
-        setId(newInst, id);
-        idMap.put(id, newInst);
+        if (!noIdTypes.contains(clazz)) {
+          setId(newInst, id);
+          idMap.put(id, newInst);
+        }
         log.debug("Created new instance " + id + " of class " + tokens[0]);
         fireNewObjectEvent(newInst);
       }
