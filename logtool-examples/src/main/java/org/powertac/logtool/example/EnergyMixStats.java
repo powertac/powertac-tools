@@ -167,7 +167,7 @@ implements Analyzer
   {
     System.out.println("Game " + Competition.currentCompetition().getName()
                        + ", " + timeslot + " timeslots");
-    data.println("Summary:");
+    data.print("Summary, ");
     data.println(String
                  .format("%.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f",
                          totalImports.quantity, totalImports.cost,
@@ -200,7 +200,7 @@ implements Analyzer
     }
 
     // print timeslot index
-    data.print(timeslot + " ");
+    data.print(timeslot + ", ");
     // print market data
     QtyCost mktData = mktTxSummary.get(timeslot);
     if (null != mktData) {
