@@ -15,6 +15,8 @@
  */
 package org.powertac.logtool.ifc;
 
+import java.io.FileNotFoundException;
+
 /**
  * Interface for analyzers
  * @author John Collins
@@ -22,9 +24,11 @@ package org.powertac.logtool.ifc;
 public interface Analyzer
 {
   /**
-   * Called before reading the logfile
+   * Called before reading the logfile. Returns false on unrecoverable
+   * error like unable to open output file.
+   * @throws FileNotFoundException 
    */
-  public void setup();
+  public void setup() throws FileNotFoundException;
   
   /**
    * Called after reading the logfile

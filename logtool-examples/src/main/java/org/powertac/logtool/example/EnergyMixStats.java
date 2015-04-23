@@ -134,9 +134,10 @@ implements Analyzer
    * Creates data structures, opens output file. It would be nice to dump
    * the broker names at this point, but they are not known until we hit the
    * first timeslotUpdate while reading the file.
+   * @throws FileNotFoundException 
    */
   @Override
-  public void setup ()
+  public void setup () throws FileNotFoundException
   {
     dor = (DomainObjectReader) SpringApplicationContext.getBean("reader");
     //brokerRepo = (BrokerRepo) SpringApplicationContext.getBean("brokerRepo");
@@ -152,14 +153,9 @@ implements Analyzer
                                   BalanceReport.class);
     dor.registerNewObjectListener(new BalancingTxHandler(),
                                   BalancingTransaction.class);
-    try {
-      data = new PrintWriter(new File(dataFilename));
-      dataInit = false;
-      state = stateId.TsUpd;
-    }
-    catch (FileNotFoundException e) {
-      log.error("Cannot open file " + dataFilename);
-    }
+    data = new PrintWriter(new File(dataFilename));
+    dataInit = false;
+    state = stateId.TsUpd;
   }
 
   @Override
