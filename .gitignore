@@ -25,3 +25,6 @@ Thumbs.db
 
 # Cobertura generated files
 cobertura.ser
+
+# Generated data files
+*.data
