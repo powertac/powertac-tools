@@ -26,9 +26,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.log4j.Logger;
+import org.powertac.common.msg.SimEnd;
 import org.powertac.logtool.common.DomainObjectReader;
 import org.powertac.logtool.common.MissingDomainObject;
 import org.powertac.logtool.common.DomainBuilder;
+import org.powertac.logtool.common.NewObjectListener;
 import org.powertac.logtool.ifc.Analyzer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -48,6 +50,8 @@ public class LogtoolCore
   
   @Autowired
   private DomainBuilder builder;
+
+  private boolean simEnd = false;
 
   /**
    * Default constructor
@@ -95,6 +99,8 @@ public class LogtoolCore
    */
   public void readStateLog (String filename, List<Analyzer> tools)
   {
+    reader.registerNewObjectListener(new SimEndHandler(),
+                                     SimEnd.class);
     Reader inputReader;
     String line = null;
     try {
@@ -120,7 +126,7 @@ public class LogtoolCore
       }
       BufferedReader in = new BufferedReader(inputReader);
       int lineNumber = 0;
-      while (true) {
+      while (!simEnd) {
         line = in.readLine();
         if (null == line) {
           log.info("Last line " + lineNumber);
@@ -153,5 +159,16 @@ public class LogtoolCore
     ArrayList<Analyzer> tools = new ArrayList<Analyzer>();
     tools.add(tool);
     readStateLog(filename, tools);
+  }
+
+  class SimEndHandler implements NewObjectListener
+  {
+
+    @Override
+    public void handleNewObject (Object thing)
+    {
+      simEnd = true;
+    }
+    
   }
 }

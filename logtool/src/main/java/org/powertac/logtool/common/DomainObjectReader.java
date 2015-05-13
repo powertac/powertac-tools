@@ -31,8 +31,10 @@ import java.util.List;
 import org.apache.log4j.Logger;
 import org.joda.time.Instant;
 import org.powertac.common.TimeService;
+import org.powertac.common.enumerations.PowerType;
 import org.powertac.common.msg.BalanceReport;
 import org.powertac.common.state.Domain;
+import org.powertac.common.xml.PowerTypeConverter;
 import org.powertac.du.DefaultBroker;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -59,7 +61,8 @@ public class DomainObjectReader
   HashMap<String, Class<?>> substitutes;
   HashSet<String> ignores;
   HashSet<Class> noIdTypes;
-  
+  PowerTypeConverter ptConverter = new PowerTypeConverter();
+
   // listeners
   HashMap<Class<?>, ArrayList<NewObjectListener>> newObjectListeners;
   
@@ -83,6 +86,7 @@ public class DomainObjectReader
     // set up the ignore list
     ignores = new HashSet<String>();
     ignores.add("org.powertac.common.Tariff");
+    ignores.add("org.powertac.common.TariffSubscription");
     //ignores.add("org.powertac.genco.Genco");
     ignores.add("org.powertac.common.Rate$ProbeCharge");
     ignores.add("org.powertac.common.msg.SimPause");
@@ -90,6 +94,9 @@ public class DomainObjectReader
     ignores.add("org.powertac.common.msg.PauseRequest");
     ignores.add("org.powertac.common.msg.PauseRelease");
     ignores.add("org.powertac.common.RandomSeed");
+    ignores.add("org.powertac.common.WeatherReport");
+    ignores.add("org.powertac.common.WeatherForecast");
+    ignores.add("org.powertac.common.WeatherForecastPrediction");
     ignores.add("org.powertac.factoredcustomer.DefaultUtilityOptimizer$DummyTariffSubscription");
 
     // set up the no-id list
@@ -438,7 +445,7 @@ public class DomainObjectReader
     catch (Exception e) {
       log.error("Exception calling method " + thing.getClass().getName()
                 + "." + method.getName()
-                + " on args " + args);
+                + " on args " + realArgs);
     }
     return false;
   }
@@ -472,13 +479,17 @@ public class DomainObjectReader
       if (clazz.isEnum()) {
         return Enum.valueOf((Class<Enum>)type, arg);
       }
+      else if (PowerType.class == clazz) {
+        //System.out.println("Class: " + clazz.getCanonicalName());
+        return ptConverter.fromString(arg);
+      }
       else {
         return resolveSimpleArg(clazz, arg);
       }
     }
 
     // check for collection, denoted by leading (
-    if (type instanceof ParameterizedType) {
+    else if (type instanceof ParameterizedType) {
       ParameterizedType ptype = (ParameterizedType)type;
       Class<?> clazz = (Class<?>)ptype.getRawType();
       boolean isCollection = false;
@@ -526,7 +537,7 @@ public class DomainObjectReader
         }
       }
     }
-   
+
     // if we get here, no resolution
     log.error("unresolved arg: type = " + type
               + ", arg = " + arg);
@@ -554,7 +565,7 @@ public class DomainObjectReader
           else {
             // it's a domain object, but we cannot resolve it
             // -- this should not happen.
-            log.info("Missing domain object " + key);
+            //log.info("Missing domain object " + key);
             throw new MissingDomainObject("missing object id=" + key);
           }
         }

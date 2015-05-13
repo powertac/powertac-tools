@@ -89,30 +89,30 @@ public class DomainObjectReaderTest
     }
   }
   
-  @Test
-  public void readList ()
-  {
-    //String slot1 = "13680:org.powertac.common.Timeslot::597::new::380::2009-01-03T20:00:00.000Z::null";
-    String fp1 = "176271:org.powertac.common.WeatherForecastPrediction::1203::new::23::-6.447321391818082::2.657257536071654::121.71284773822428::0.375";
-    String fp2 = "176272:org.powertac.common.WeatherForecastPrediction::1204::new::24::-7.327664553479619::1.8344251307130162::114.31156703428204::0.375";
-    String forecast = "176272:org.powertac.common.WeatherForecast::1205::new::31::(1203,1204)";
-    try {
-      //Timeslot ts1 = (Timeslot)dor.readObject(slot1);
-      WeatherForecastPrediction wfp1 = (WeatherForecastPrediction)dor.readObject(fp1);
-      WeatherForecastPrediction wfp2 = (WeatherForecastPrediction)dor.readObject(fp2);
-      Object result = dor.readObject(forecast);
-      assertNotNull("read a forecast", result);
-      assertEquals("correct class", "org.powertac.common.WeatherForecast", result.getClass().getName());
-      WeatherForecast wf = (WeatherForecast)result;
-      List<WeatherForecastPrediction> predictions = wf.getPredictions();
-      assertEquals("correct number of predictions", 2, predictions.size());
-      assertEquals("correct first prediction", wfp1, predictions.get(0));
-      assertEquals("correct second prediction", wfp2, predictions.get(1));
-    }
-    catch (MissingDomainObject mdo) {
-      fail("bad exception " + mdo.toString());
-    }
-  }
+//  @Test
+//  public void readList ()
+//  {
+//    //String slot1 = "13680:org.powertac.common.Timeslot::597::new::380::2009-01-03T20:00:00.000Z::null";
+//    String fp1 = "176271:org.powertac.common.WeatherForecastPrediction::1203::new::23::-6.447321391818082::2.657257536071654::121.71284773822428::0.375";
+//    String fp2 = "176272:org.powertac.common.WeatherForecastPrediction::1204::new::24::-7.327664553479619::1.8344251307130162::114.31156703428204::0.375";
+//    String forecast = "176272:org.powertac.common.WeatherForecast::1205::new::31::(1203,1204)";
+//    try {
+//      //Timeslot ts1 = (Timeslot)dor.readObject(slot1);
+//      WeatherForecastPrediction wfp1 = (WeatherForecastPrediction)dor.readObject(fp1);
+//      WeatherForecastPrediction wfp2 = (WeatherForecastPrediction)dor.readObject(fp2);
+//      Object result = dor.readObject(forecast);
+//      assertNotNull("read a forecast", result);
+//      assertEquals("correct class", "org.powertac.common.WeatherForecast", result.getClass().getName());
+//      WeatherForecast wf = (WeatherForecast)result;
+//      List<WeatherForecastPrediction> predictions = wf.getPredictions();
+//      assertEquals("correct number of predictions", 2, predictions.size());
+//      assertEquals("correct first prediction", wfp1, predictions.get(0));
+//      assertEquals("correct second prediction", wfp2, predictions.get(1));
+//    }
+//    catch (MissingDomainObject mdo) {
+//      fail("bad exception " + mdo.toString());
+//    }
+//  }
   
   @Test
   public void readSubstituteClass ()
