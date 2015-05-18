@@ -22,11 +22,14 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.log4j.Logger;
+import org.powertac.balancemkt.ChargeInfo;
 import org.powertac.balancemkt.SettlementContext;
 import org.powertac.balancemkt.StaticSettlementProcessor;
 import org.powertac.common.Broker;
@@ -60,22 +63,11 @@ import org.powertac.logtool.ifc.Analyzer;
  * 
  * Reading from these files is synchronized by timeslot
  * 
- * To gather this data, we run through a series of states in each timeslot:
- * 1. Wait for TimeslotUpdate
- * 2. Gather MarketTransaction instances until the first TariffTransaction
- *    shows up. Each MarketTransaction gives price and quantity for a
- *    commitment in the wholesale market.
- * 3. Gather TariffTransaction instances until a BalanceReport shows up.
- *    Each TariffTransaction of type PRODUCE or CONSUME gives local production
- *    and consumption numbers, and prices.
- * 4. Gather TariffTransaction instances produced by the balancing process
- *    until the first BalancingTransaction shows up. The TariffTransaction
- *    instances may be either PRODUCE for up-regulation or CONSUME for
- *    down-regulation. These numbers also modify the production and consumption
- *    data from state #3.
- * 5. Gather BalancingTransaction instances until a TimeslotUpdate arrives.
- *    These give total net imbalance (after the local balancing controls are
- *    applied) for each broker, and the cost to resolve it.
+ * Output is 1 (long) row/timeslot:
+ *   ts pPlus pMinus overallImbalance rmBase rmActual broker (netLoad reg p1 p2) ...
+ * where baseCost is the rm cost in the absence of broker-provided balancing
+ * capacity, and rmActual is the actual rm cost. The reg value is the amount
+ * of regulating capacity offered by the broker that is actually used.
  * 
  * @author John Collins
  */
@@ -88,27 +80,30 @@ implements Analyzer
   private DomainObjectReader dor;
   private BrokerRepo brokerRepo;
   private CapacityControlSvc capacityControl;
+  private LocalSettlementContext settlementContext;
   private StaticSettlementProcessor settlementProcessor;
 
   // captured parameters
   private double balancingCost = 0.0;
   private double pPlusPrime = 0.0;
   private double pMinusPrime = 0.0;
+  private double defaultSpotPrice = -50.0;
 
   // data collectors for current timeslot
   private int timeslot;
 
-  // summary data collectors
+  // map tariff ID to balancing order
   private HashMap<Long, BalancingOrder> balancingOrders;
 
   // trace input file
   private String traceFilename;
   private BufferedReader trace;
+  private int traceLineNumber = 0;
 
   // data output file
   private PrintWriter data = null;
   private String dataFilename;
-  private boolean dataInit = true;
+  //private boolean dataInit = true;
 
   /**
    * Constructor does nothing. Call setup() before reading a file to
@@ -162,6 +157,7 @@ implements Analyzer
     brokerRepo = (BrokerRepo) SpringApplicationContext.getBean("brokerRepo");
 
     capacityControl = new CapacityControlSvc();
+    settlementContext = new LocalSettlementContext();
     settlementProcessor = new StaticSettlementProcessor(null, capacityControl);
 
     balancingOrders =
@@ -185,7 +181,7 @@ implements Analyzer
     catch (FileNotFoundException e) {
       System.out.println("Cannot open data file " + dataFilename);
     }
-    dataInit = false;
+    //dataInit = false;
   }
 
   @Override
@@ -205,25 +201,79 @@ implements Analyzer
   private void summarizeTimeslot ()
   {
     TraceData traceData = readTraceData(timeslot);
-    data.println(traceData.toString());
+    double rmBase = 0.0;
+    double imbalance = traceData.getTotalImbalance();
+    if (imbalance < 0.0) {
+      // up-regulation
+      double price = traceData.getPPlus() - imbalance * pPlusPrime;
+      rmBase = -imbalance * price;
+    }
+    else {
+      // down-regulation
+      double price = traceData.getPMinus() - imbalance * pMinusPrime;
+      rmBase = -imbalance * price;
+    }
+    // ts pPlus pMinus ti rmBase rmActual
+    data.format("%d %.4f %.4f %.4f %.4f %.4f",
+                             traceData.getTimeslot(),
+                             traceData.getPPlus(),
+                             traceData.getPMinus(),
+                             traceData.getTotalImbalance(),
+                             rmBase, traceData.getRmCost());
     capacityControl.setTraceData(traceData);
-    dataInit = true;
+    settlementContext.setTraceData(traceData);
+    List<ChargeInfo> brokerData = generateBrokerData(traceData);
+    settlementProcessor.settle(settlementContext, brokerData);
+    for (ChargeInfo bd: brokerData) {
+      data.format(" %s (%.4f %.4f %.4f %.4f)", bd.getBrokerName(),
+                  bd.getNetLoadKWh(), bd.getCurtailment(),
+                  bd.getBalanceChargeP1(), bd.getBalanceChargeP2());
+    }
+    data.format("%n");
     return;
   }
 
+  private List<ChargeInfo> generateBrokerData (TraceData traceData)
+  {
+    HashMap<Broker, ChargeInfo> chargeInfoMap = new HashMap<Broker, ChargeInfo>();
+
+    // code stolen from BalancingMarketService.balanceTimeslot()
+    // create the ChargeInfo instances for each broker
+    for (Broker broker : brokerRepo.findRetailBrokers()) {
+      double imbalance = traceData.getBrokerBalance(broker);
+      ChargeInfo info = new ChargeInfo(broker, imbalance);
+      //report.addImbalance(imbalance);
+      chargeInfoMap.put(broker, info);
+    }
+    
+    // retrieve and allocate the balancing orders
+    Collection<BalancingOrder> boc = balancingOrders.values();
+    for (BalancingOrder order : boc) {
+      ChargeInfo info = chargeInfoMap.get(order.getBroker());
+      info.addBalancingOrder(order);
+    }
+
+    // gather up the list of ChargeInfo instances and settle
+    log.info("balancing prices: pPlus=" + traceData.getPPlus()
+             + ", pMinus=" + traceData.getPMinus());
+    List<ChargeInfo> brokerData = new ArrayList<ChargeInfo>(chargeInfoMap.values());
+    return brokerData;
+  }
+
   // Regular expressions for trace file
-  // first, some patterns to capture numbers:
+  // first, some patterns to capture numbers and names:
   private String floatCapture = "(-?\\d+\\.\\d*)";
-  private String intCapture = "(//d+)";
+  private String intCapture = "(\\d+)";
   private String expCapture = "(-?\\d+\\.\\d*(?:E-?\\d+)?)";
+  private String bnCapture = "(\\w(?:\\w| )*\\w+)"; // broker names
   private Pattern configQual =
       Pattern.compile(String.format("Configured BM: balancing cost = %s, \\(pPlus',pMinus'\\) = \\(%s,%s\\)",
                                     floatCapture, expCapture, expCapture));
   private Pattern tsQual =
       Pattern.compile(String.format("Deactivated timeslot %s", intCapture));
   private Pattern mbQual =
-      Pattern.compile(String.format("BalancingMarketService: market balance for (\\w+): %s",
-                                    floatCapture));
+      Pattern.compile(String.format("BalancingMarketService: market balance for %s: %s",
+                                    bnCapture, floatCapture));
   private Pattern tiQual =
       Pattern.compile(String.format("SettlementProcessor: totalImbalance=%s",
                                     floatCapture));
@@ -233,8 +283,9 @@ implements Analyzer
   private Pattern boQual =
       Pattern.compile(String.format("BalancingOrder %s capacity = \\(%s,%s\\)",
                                     intCapture, floatCapture, floatCapture));
-  private Pattern ssQual =
-      Pattern.compile("SettlementProcessor: DU static settlement");
+  private Pattern duQual =
+      Pattern.compile(String.format("SettlementProcessor: DU budget: rm cost = %s, broker cost = %s",
+                                    floatCapture, floatCapture));
   private enum Scan {INIT, TIMESLOT, PRICE, BALANCE, CAPACITY, NEXT, END}
   private Scan scanState = Scan.INIT;
 
@@ -261,6 +312,7 @@ implements Analyzer
     while (!(scanState == Scan.NEXT || scanState == Scan.END)) {
       try {
         String line = trace.readLine();
+        traceLineNumber += 1;
         if (null == line) {
           log.info("Reached EOF in ts " + timeslot);
           scanState = Scan.END;
@@ -272,10 +324,10 @@ implements Analyzer
             balancingCost = Double.parseDouble(cf.group(1));
             pPlusPrime = Double.parseDouble(cf.group(2));
             pMinusPrime = Double.parseDouble(cf.group(3));
-            scanState = Scan.NEXT;
+            scanState = Scan.TIMESLOT;
           }
         }
-        else if (scanState == Scan.TIMESLOT) {
+        if (scanState == Scan.TIMESLOT) {
           Matcher m = tsQual.matcher(line);
           if (m.find()) {
             int ts = Integer.parseInt(m.group(1));
@@ -331,15 +383,19 @@ implements Analyzer
             collector.addRegulationCapacity(id, up, down);
           }
           else {
-            bc = ssQual.matcher(line);
+            bc = duQual.matcher(line);
             if (bc.find()) {
+              double value = Double.parseDouble(bc.group(1));
+              collector.setRmCost(value);
+              value = Double.parseDouble(bc.group(2));
+              collector.setBrokerCost(value);
               scanState = Scan.NEXT;
             }
           }
         }
       }
       catch (IOException e) {
-        // TODO Auto-generated catch block
+        log.error("tracefile error line " + traceLineNumber);
         e.printStackTrace();
       }
     }
@@ -356,6 +412,8 @@ implements Analyzer
     double pPlus = 0.0;
     double pMinus = 0.0;
     double totalImbalance = 0.0;
+    double rmCost = 0.0;
+    double brokerCost = 0.0;
 
     TraceData (int timeslot)
     {
@@ -414,13 +472,33 @@ implements Analyzer
       return totalImbalance;
     }
 
+    void setRmCost (double value)
+    {
+      rmCost = value;
+    }
+
+    double getRmCost ()
+    {
+      return rmCost;
+    }
+
+    void setBrokerCost (double value)
+    {
+      brokerCost = value;
+    }
+
+    double getBrokerCost ()
+    {
+      return brokerCost;
+    }
+
     @Override
     public String toString ()
     {
       StringBuffer result = new StringBuffer();
       result.append("ts ").append(timeslot);
-      result.append(String.format(" pPlus=%.4f pMinus=%.4f imbalance=%.4f",
-                                  pPlus, pMinus, totalImbalance));
+      result.append(String.format(" pPlus=%.4f pMinus=%.4f imbalance=%.4f, rmCost=%.4f, brokerCost=%.4f",
+                                  pPlus, pMinus, totalImbalance, rmCost, brokerCost));
       for (Broker broker: brokerBalance.keySet()) {
         result.append(String.format(" %s=%.4f",
                                     broker.getUsername(),
@@ -467,18 +545,23 @@ implements Analyzer
       BalancingOrder order = (BalancingOrder) thing;
       log.info("New balancing order for spec " + order.getTariffId()
                + ", price=" + order.getPrice());
-      balancingOrders.put(order.getId(), order);
+      balancingOrders.put(order.getTariffId(), order);
     } 
   }
 
   class LocalSettlementContext implements SettlementContext
   {
+    TraceData traceData;
+
+    void setTraceData (TraceData data)
+    {
+      traceData = data;
+    }
 
     @Override
     public double getMarketBalance (Broker broker)
     {
-      // TODO Auto-generated method stub
-      return 0;
+      return traceData.getBrokerBalance(broker);
     }
 
     @Override
@@ -491,43 +574,37 @@ implements Analyzer
     @Override
     public double getPPlusPrime ()
     {
-      // TODO Auto-generated method stub
-      return 0;
+      return pPlusPrime;
     }
 
     @Override
     public double getPMinusPrime ()
     {
-      // TODO Auto-generated method stub
-      return 0;
+      return pMinusPrime;
     }
 
     @Override
     public Double getBalancingCost ()
     {
-      // TODO Auto-generated method stub
-      return null;
+      return balancingCost;
     }
 
     @Override
     public double getDefaultSpotPrice ()
     {
-      // TODO Auto-generated method stub
-      return 0;
+      return defaultSpotPrice;
     }
 
     @Override
     public double getPPlus ()
     {
-      // TODO Auto-generated method stub
-      return 0;
+      return traceData.getPPlus();
     }
 
     @Override
     public double getPMinus ()
     {
-      // TODO Auto-generated method stub
-      return 0;
+      return traceData.getPMinus();
     }
     
   }
@@ -552,8 +629,7 @@ implements Analyzer
     @Override
     public RegulationCapacity getRegulationCapacity (BalancingOrder order)
     {
-      // TODO Auto-generated method stub
-      return null;
+      return traceData.getRegulationCapacity(order.getId());
     }
 
     @Override
