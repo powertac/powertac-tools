@@ -1,0 +1,11 @@
+#!/bin/bash
+#
+# Gather logs from a competition into the current directory.
+# Args: base_url start end
+#  where: base_url is the url for the directory containing the logfiles
+#         start and end are the first and last sequence numbers to gather
+
+for i in $(seq $2 $3)
+do
+    wget ${1}game-${i}-sim-logs.tar.gz
+done

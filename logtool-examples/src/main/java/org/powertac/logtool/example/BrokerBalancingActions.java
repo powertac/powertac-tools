@@ -28,6 +28,10 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import joptsimple.OptionParser;
+import joptsimple.OptionSet;
+import joptsimple.OptionSpec;
+
 import org.apache.log4j.Logger;
 import org.powertac.balancemkt.ChargeInfo;
 import org.powertac.balancemkt.SettlementContext;
@@ -63,11 +67,17 @@ import org.powertac.logtool.ifc.Analyzer;
  * 
  * Reading from these files is synchronized by timeslot
  * 
- * Output is 1 (long) row/timeslot:
- *   ts pPlus pMinus overallImbalance rmBase rmActual broker (netLoad reg p1 p2) ...
+ * Output is 1 (long) row/timeslot. The first six columns are
+ *   ts;pPlus;pMinus;totalImbalance;rmBase;rmActual 
  * where baseCost is the rm cost in the absence of broker-provided balancing
- * capacity, and rmActual is the actual rm cost. The reg value is the amount
- * of regulating capacity offered by the broker that is actually used.
+ * capacity, and rmActual is the actual rm cost. The sign of totalImbalance
+ * is negative for deficit, positive for surplus.
+ * This is followed by per-broker data formatted as
+ *   ;broker;(netLoad;regOffered;regUsed;baseCost;p1;p2) ...
+ * where netLoad is the broker's individual imbalance, regOffered is the
+ * amount of regulating capacity offered by the broker,
+ * regUsed is the amount actually used, and baseCost is what the broker's
+ * imbalance would have cost in the absence of exercised customer capacity.
  * 
  * @author John Collins
  */
@@ -79,9 +89,14 @@ implements Analyzer
 
   private DomainObjectReader dor;
   private BrokerRepo brokerRepo;
+  private TariffRepo tariffRepo;
   private CapacityControlSvc capacityControl;
   private LocalSettlementContext settlementContext;
   private StaticSettlementProcessor settlementProcessor;
+
+  // command-line options
+  private Integer gameId = null;
+  private String competitionId = null;
 
   // captured parameters
   private double balancingCost = 0.0;
@@ -92,8 +107,8 @@ implements Analyzer
   // data collectors for current timeslot
   private int timeslot;
 
-  // map tariff ID to balancing order
-  private HashMap<Long, BalancingOrder> balancingOrders;
+  // map tariff ID to balancing order, balancing order to broker
+  private HashMap<TariffSpecification, BalancingOrder> balancingOrders;
 
   // trace input file
   private String traceFilename;
@@ -130,19 +145,30 @@ implements Analyzer
    */
   private void cli (String[] args)
   {
-    if (args.length != 2) {
-      System.out.println("Usage: <analyzer> state-log output-file");
+    // set up command-line options
+    OptionParser parser = new OptionParser();
+    OptionSpec<Integer> gameIdOption = 
+        parser.accepts("game").withRequiredArg().ofType(Integer.class);
+    OptionSpec<String> competitionIdOption = 
+        parser.accepts("competition").withRequiredArg().ofType(String.class);
+    OptionSet options = parser.parse(args);
+    gameId = options.valueOf(gameIdOption);
+    competitionId = options.valueOf(competitionIdOption);
+    String[] fileArgs = options.nonOptionArguments().toArray(new String[0]);
+    if (fileArgs.length != 2) {
+      System.out.println("Usage: <analyzer> [--game g] [--competition c] state-log output-file");
       return;
     }
-    String stateFilename = args[0];
+
+    String stateFilename = fileArgs[0];
     int ext = stateFilename.indexOf(".state");
     if (-1 == ext) {
-      System.out.println("Usage: first arg must be a .state log");
+      System.out.println("Usage: first file arg must be a .state log");
       return;
     }
     traceFilename = stateFilename.replace(".state", ".trace");
-    dataFilename = args[1];
-    super.cli(args[0], this);
+    dataFilename = fileArgs[1];
+    super.cli(fileArgs[0], this);
   }
 
   /**
@@ -155,13 +181,14 @@ implements Analyzer
   {
     dor = (DomainObjectReader) SpringApplicationContext.getBean("reader");
     brokerRepo = (BrokerRepo) SpringApplicationContext.getBean("brokerRepo");
+    tariffRepo = (TariffRepo) SpringApplicationContext.getBean("tariffRepo");
 
     capacityControl = new CapacityControlSvc();
     settlementContext = new LocalSettlementContext();
     settlementProcessor = new StaticSettlementProcessor(null, capacityControl);
 
     balancingOrders =
-        new HashMap<Long, BalancingOrder>();
+        new HashMap<TariffSpecification, BalancingOrder>();
 
     dor.registerNewObjectListener(new TimeslotUpdateHandler(),
                                   TimeslotUpdate.class);
@@ -213,8 +240,12 @@ implements Analyzer
       double price = traceData.getPMinus() - imbalance * pMinusPrime;
       rmBase = -imbalance * price;
     }
+    if (competitionId != null)
+      data.format("%s;", competitionId);
+    if (gameId != null)
+      data.format("%d;", gameId);
     // ts pPlus pMinus ti rmBase rmActual
-    data.format("%d %.4f %.4f %.4f %.4f %.4f",
+    data.format("%d;%.4f;%.4f;%.4f;%.4f;%.4f",
                              traceData.getTimeslot(),
                              traceData.getPPlus(),
                              traceData.getPMinus(),
@@ -225,9 +256,33 @@ implements Analyzer
     List<ChargeInfo> brokerData = generateBrokerData(traceData);
     settlementProcessor.settle(settlementContext, brokerData);
     for (ChargeInfo bd: brokerData) {
-      data.format(" %s (%.4f %.4f %.4f %.4f)", bd.getBrokerName(),
-                  bd.getNetLoadKWh(), bd.getCurtailment(),
-                  bd.getBalanceChargeP1(), bd.getBalanceChargeP2());
+      // compute offered regulation and base cost for this broker
+      double offeredReg = 0.0;
+      for (TariffSpecification spec: balancingOrders.keySet()) {
+        if (spec.getBroker() == bd.getBroker()) {
+          BalancingOrder order = balancingOrders.get(spec);
+          RegulationCapacity cap =
+              traceData.getRegulationCapacity(order.getId());
+          if (null == cap)
+            continue;
+          if (imbalance < 0.0) {
+            // up-regulation
+            offeredReg += cap.getUpRegulationCapacity();
+          }
+          else {
+            offeredReg += cap.getDownRegulationCapacity();
+          }
+        }
+      }
+      // compute per-broker rm-base cost
+      double brokerBase = -rmBase * bd.getNetLoadKWh() / imbalance;
+      data.format(";%s;(%.4f;%.4f;%.4f;%.4f;%.4f;%.4f)", bd.getBrokerName(),
+                  bd.getNetLoadKWh(),
+                  offeredReg,
+                  bd.getCurtailment(),
+                  brokerBase,
+                  bd.getBalanceChargeP1(),
+                  bd.getBalanceChargeP2());
     }
     data.format("%n");
     return;
@@ -545,7 +600,9 @@ implements Analyzer
       BalancingOrder order = (BalancingOrder) thing;
       log.info("New balancing order for spec " + order.getTariffId()
                + ", price=" + order.getPrice());
-      balancingOrders.put(order.getTariffId(), order);
+      TariffSpecification spec =
+          tariffRepo.findSpecificationById(order.getTariffId());
+      balancingOrders.put(spec, order);
     } 
   }
 

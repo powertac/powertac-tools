@@ -1,0 +1,29 @@
+#!/bin/bash
+#
+# Processes game logs through a logtool analyzer, which must be in the
+# CLASSPATH. Files are in bundled
+# format; unbundling one creates files
+#  log/powertac-sim-game.state and
+#  log/powertac-sim-game.trace 
+# in the current dir.
+#
+# Before running the logtool analyzer, we must first check for the
+# ERROR string in the trace file; if we find it, we print an error msg
+# and skip that game. After running the analyzer, we delete the
+# unpacked log files.
+# 
+# Usage:
+#  logtool-iterator analyzer-class gamefile-dir data-prefix competitionId firstGame lastGame
+
+for i in $(seq $5 $6)
+do
+    echo "game ${i}"
+    tar xzf "${2}/game-${i}-sim-logs.tar.gz"
+    if grep ERROR "log/powertac-sim-${i}.trace"
+    then
+	echo "ERROR detected in game ${i}"
+    else
+	mvn exec:exec -Dexec.args="${1} --competition ${4} --game ${i} log/powertac-sim-${i}.state ${3}${i}.data"
+    fi
+    rm "log/powertac-sim-${i}".*
+done
