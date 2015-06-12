@@ -107,8 +107,12 @@ implements Analyzer
   // data collectors for current timeslot
   private int timeslot;
 
-  // map tariff ID to balancing order, balancing order to broker
-  private HashMap<TariffSpecification, BalancingOrder> balancingOrders;
+  // map tariff ID to balancing orders
+  // TODO: this is an incomplete solution, since in general a tariff
+  // could have any number of BalancingOrders, presumably with different
+  // ratios and prices.
+  private HashMap<TariffSpecification, BalancingOrder> balancingOrdersUp;
+  private HashMap<TariffSpecification, BalancingOrder> balancingOrdersDown;
 
   // trace input file
   private String traceFilename;
@@ -187,7 +191,9 @@ implements Analyzer
     settlementContext = new LocalSettlementContext();
     settlementProcessor = new StaticSettlementProcessor(null, capacityControl);
 
-    balancingOrders =
+    balancingOrdersUp =
+        new HashMap<TariffSpecification, BalancingOrder>();
+    balancingOrdersDown =
         new HashMap<TariffSpecification, BalancingOrder>();
 
     dor.registerNewObjectListener(new TimeslotUpdateHandler(),
@@ -227,18 +233,30 @@ implements Analyzer
   // four calls.
   private void summarizeTimeslot ()
   {
+    if (timeslot == 874) {
+      // breakpoint location
+      log.info("timeslot " + timeslot);
+    }
     TraceData traceData = readTraceData(timeslot);
+    if (null == traceData) {
+      // something went wrong
+      log.error("Bad trace file");
+      return;
+    }
     double rmBase = 0.0;
     double imbalance = traceData.getTotalImbalance();
+    HashMap<TariffSpecification, BalancingOrder> balancingOrders = null;
     if (imbalance < 0.0) {
       // up-regulation
       double price = traceData.getPPlus() - imbalance * pPlusPrime;
       rmBase = -imbalance * price;
+      balancingOrders = balancingOrdersUp;
     }
     else {
       // down-regulation
       double price = traceData.getPMinus() - imbalance * pMinusPrime;
       rmBase = -imbalance * price;
+      balancingOrders = balancingOrdersDown;
     }
     if (competitionId != null)
       data.format("%s;", competitionId);
@@ -302,7 +320,9 @@ implements Analyzer
     }
     
     // retrieve and allocate the balancing orders
-    Collection<BalancingOrder> boc = balancingOrders.values();
+    ArrayList<BalancingOrder> boc = new ArrayList<BalancingOrder>();
+    boc.addAll(balancingOrdersUp.values());
+    boc.addAll(balancingOrdersDown.values());
     for (BalancingOrder order : boc) {
       ChargeInfo info = chargeInfoMap.get(order.getBroker());
       info.addBalancingOrder(order);
@@ -435,6 +455,8 @@ implements Analyzer
             long id = Long.parseLong(bc.group(1));
             double up = Double.parseDouble(bc.group(2));
             double down = Double.parseDouble(bc.group(3));
+            log.info("ts " + timeslot + " add BO capacity ("
+                     + id + ", " + up + ", " + down + ")");
             collector.addRegulationCapacity(id, up, down);
           }
           else {
@@ -602,9 +624,18 @@ implements Analyzer
                + ", price=" + order.getPrice());
       TariffSpecification spec =
           tariffRepo.findSpecificationById(order.getTariffId());
-      balancingOrders.put(spec, order);
+      if (order.getExerciseRatio() > 0.0) {
+        // up-regulation
+        balancingOrdersUp.put(spec, order);
+      }
+      else {
+        balancingOrdersDown.put(spec, order);
+      }
     } 
   }
+
+  // ------------------------------------
+  // Satisfy settlement processor API
 
   class LocalSettlementContext implements SettlementContext
   {
