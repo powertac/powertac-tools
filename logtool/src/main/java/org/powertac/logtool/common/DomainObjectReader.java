@@ -94,9 +94,9 @@ public class DomainObjectReader
     ignores.add("org.powertac.common.msg.PauseRequest");
     ignores.add("org.powertac.common.msg.PauseRelease");
     ignores.add("org.powertac.common.RandomSeed");
-    ignores.add("org.powertac.common.WeatherReport");
-    ignores.add("org.powertac.common.WeatherForecast");
-    ignores.add("org.powertac.common.WeatherForecastPrediction");
+    //ignores.add("org.powertac.common.WeatherReport");
+    //ignores.add("org.powertac.common.WeatherForecast");
+    //ignores.add("org.powertac.common.WeatherForecastPrediction");
     ignores.add("org.powertac.factoredcustomer.DefaultUtilityOptimizer$DummyTariffSubscription");
 
     // set up the no-id list
@@ -293,6 +293,8 @@ public class DomainObjectReader
   private Object constructInstance (Class<?> clazz, String[] args)
           throws MissingDomainObject
   {
+    //if (clazz.getName().equals("org.powertac.common.WeatherReport"))
+    //  System.out.println("WeatherReport");
     Constructor<?>[] potentials = clazz.getDeclaredConstructors();
     Constructor<?> target = null;
     Object[] params = null;

@@ -103,6 +103,7 @@ implements Analyzer
   @Override
   public void report ()
   {
+    data.close();
     return;
   }
 

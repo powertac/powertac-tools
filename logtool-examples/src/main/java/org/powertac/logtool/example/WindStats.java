@@ -44,7 +44,7 @@ public class WindStats
 extends LogtoolContext
 implements Analyzer
 {
-  static private Logger log = Logger.getLogger(WeatherStats.class.getName());
+  static private Logger log = Logger.getLogger(WindStats.class.getName());
 
   private DomainObjectReader dor;
   
