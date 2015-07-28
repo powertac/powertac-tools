@@ -293,8 +293,10 @@ public class DomainObjectReader
   private Object constructInstance (Class<?> clazz, String[] args)
           throws MissingDomainObject
   {
-    //if (clazz.getName().equals("org.powertac.common.WeatherReport"))
-    //  System.out.println("WeatherReport");
+    //if (clazz.getName().equals("org.powertac.common.Order"))
+    //  System.out.println("Order");
+    //else if (clazz.getName().equals("org.powertac.common.TariffSpecification"))
+    //  System.out.println("TariffSpecification");
     Constructor<?>[] potentials = clazz.getDeclaredConstructors();
     Constructor<?> target = null;
     Object[] params = null;
@@ -561,13 +563,13 @@ public class DomainObjectReader
           // this is a domain type; it may or may not be in the map
           Long key = Long.parseLong(arg);
           Object value = idMap.get(key);
-          if (null != value) {
+          if (null != value && clazz.isAssignableFrom(value.getClass())) {
             return value;
           }
           else {
             // it's a domain object, but we cannot resolve it
-            // -- this should not happen.
-            //log.info("Missing domain object " + key);
+            // -- this can be an error, or a symptom of using the wrong
+            //    constructor or method.
             throw new MissingDomainObject("missing object id=" + key);
           }
         }
@@ -696,5 +698,10 @@ public class DomainObjectReader
     catch (Exception e) {
       log.error("Error setting id value " + e.toString());
     }
+  }
+
+  class WrongArgType extends Exception {
+
+    private static final long serialVersionUID = 7044658729956229376L;
   }
 }
