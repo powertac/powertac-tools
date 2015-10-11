@@ -70,6 +70,40 @@ def plotMeans ():
     means = [c.mean() for c in d]
     stds = [c.std() for c in d]
     x = range(np.shape(d)[0])
-    plt.figure()
-    plt.errorbar(x, means, yerr=stds)
+    fig = plt.figure()
+    xy = fig.add_subplot(1,1,1)
+    xy.errorbar(x, means, yerr=stds)
+    plt.xlabel('hour')
+    plt.ylabel('Net demand (MW)')
     plt.show()
+
+def plotContours (contours):
+    '''
+    Extracts data points from the raw data at the given contour intervals.
+    The contours arg is a list of probabilities 0.0 < contour <= 1.0.
+    For example, contours=[0.05, 0.5, 0.95] plots the 5%, 50%, and 95% contours.
+    '''
+    rows = []
+    for c in rawData:
+        c.sort()
+    for prob in contours:
+        row = []
+        rows.append(row)
+        for c in rawData:
+            n = len(c)
+            index = round((n - 0.5) * prob)
+            if index < 0:
+                index = 0
+            if index >= n:
+                index = n - 1
+            row.append(c[index])
+    x = range(len(rawData))
+    fig = plt.figure()
+    xy = fig.add_subplot(1,1,1)
+    for y in rows:
+        print('xlen', len(x), 'ylen', len(y))
+        xy.plot(x, y)
+    plt.xlabel('hour')
+    plt.ylabel('Net demand (MW)')
+    plt.show()
+    

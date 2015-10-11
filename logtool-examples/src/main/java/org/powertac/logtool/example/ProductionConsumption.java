@@ -125,7 +125,7 @@ implements Analyzer
   {
     if (!dataInit) {
       // first time through nothing to but print header
-      data.println("slot, dow, hour, production, consumption");
+      //data.println("slot, dow, hour, production, consumption");
       dataInit = true;
       return;
     }

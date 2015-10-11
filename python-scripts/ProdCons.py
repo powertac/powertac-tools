@@ -1,9 +1,9 @@
 #!/usr/bin/python
-
-# Extracts production and consumption data from the games in a directory.
-# Assumes the games are in their packed, compressed state, so must unpack
-# each game before processing it.
-#
+'''
+Extracts production and consumption data from the games in a directory.
+Assumes the games are in their packed, compressed state, so must unpack
+each game before processing it.
+'''
 # Uses Python 3.4 or later
 
 import string,re,os,sys,subprocess
@@ -57,7 +57,7 @@ def extractData (statefileName):
                     ' ',
                     os.path.join(outdir,
                                  gameId + '-prod-cons.data')])
-    print(args)
+    # print(args)
     subprocess.check_output(['mvn', 'exec:exec',
                              '-Dexec.args=' + args],
                             env = processEnv,
@@ -72,4 +72,3 @@ def processTournament (tournamentDir):
     for statelog in stateLogIter(tournamentDir):
         print(statelog)
         extractData(str(statelog))
-
