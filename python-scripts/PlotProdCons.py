@@ -100,10 +100,11 @@ def plotContours (contours):
     x = range(len(rawData))
     fig = plt.figure()
     xy = fig.add_subplot(1,1,1)
+    xy.grid(True)
     for y in rows:
-        print('xlen', len(x), 'ylen', len(y))
         xy.plot(x, y)
-    plt.xlabel('hour')
+    plt.xlabel('Hour of week')
     plt.ylabel('Net demand (MW)')
+    plt.xticks(np.arange(0, 169, 12))
     plt.show()
     
