@@ -194,7 +194,7 @@ def plotHistogram ():
     print('range', min(flat), max(flat))
     plt.hist(flat, bins=250)
     plt.title('Demand density')
-    plt.xlabel('Demand')
+    plt.xlabel('Demand (MW)')
     plt.ylabel('Frequency')
     plt.show()
 
@@ -211,7 +211,7 @@ def plotPeakHistogram (horizon):
             peaks.append(peak)
     plt.hist(peaks, bins=250)
     plt.title('Peak demand distribution, {0}-day horizon'.format(horizon))
-    plt.xlabel('Peak demand')
+    plt.xlabel('Peak demand (MW)')
     plt.ylabel('Frequency')
     plt.show()
 
