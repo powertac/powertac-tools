@@ -25,15 +25,18 @@ def stateLogIter (tournamentDir):
 gameIdRe = re.compile('game-(\d+)-sim-logs.tar.gz')
 def extractStateLog (gameLog):
     '''
-    Extracts logs from compressed game log file, returns path to state log
+    Extracts logs from compressed game log file, if not already extracted.
+    Returns path to state log.
     '''
     path = Path(gameLog)
-    p1 = subprocess.Popen(['tar', 'xzf', path.name], cwd = str(path.parent))
-    p1.wait()
     m = gameIdRe.search(str(path))
     if m:
         gameId = m.group(1)
-        return Path(path.parent, 'log', 'powertac-sim-' + gameId + '.state')
+        logPath = Path(path.parent, 'log', 'powertac-sim-' + gameId + '.state')
+        if not logPath.exists():
+            p1 = subprocess.Popen(['tar', 'xzf', path.name], cwd = str(path.parent))
+            p1.wait()
+        return logPath
     else:
         gameId = 'xx'
         print('Failed to find game ID in ' + str(path))

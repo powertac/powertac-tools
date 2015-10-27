@@ -145,7 +145,6 @@ implements Analyzer
   // catch TimeslotUpdate events
   class TimeslotUpdateHandler implements NewObjectListener
   {
-
     @Override
     public void handleNewObject (Object thing)
     {
