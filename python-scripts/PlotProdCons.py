@@ -24,6 +24,7 @@ generated as pc.plotContours(pc.weekdayData, [.02,.25,.5,.75,.98])
 import numpy as np
 import scipy as sp
 import matplotlib.pyplot as plt
+import matplotlib.lines as mline
 import pylab as pl
 from scipy import stats
 from pathlib import Path
@@ -68,15 +69,15 @@ def processFile (dataFile):
         row = line.split(', ')
         dow = int(row[1])
         hod = int(row[2])
-        column = (dow - 1) * 24 + hod
+        how = (dow - 1) * 24 + hod # hour-of-week
         prod = floatMaybe(row[3])
         cons = floatMaybe(row[4])
         #if cons < 0.0: # omit rows where cons == 0
         net = -prod - cons
-        gameSeries.append(net)
-        weekData[column].append(net)
+        gameSeries.append([how, net])
+        weekData[how].append(net)
         dayData[hod].append(net)
-        if dow < 5:
+        if dow <= 5:
             #weekday
             weekdayData[hod].append(net)
         else:
@@ -134,7 +135,7 @@ def plotContours (data, contours):
                 row.append(0.0)
     x = range(len(data))
     plt.grid(True)
-    plt.title('Net consumption contours')
+    plt.title('Net demand contours')
     plt.ylim((0, 110))
     for y,lbl in zip(rows, contours):
         plt.plot(x, y, label = '{0}%'.format(lbl * 100))
@@ -191,11 +192,21 @@ def plotHistogram ():
     Flattens the weekData and plots it as a histogram
     '''
     flat = [item for row in weekData for item in row]
-    print('range', min(flat), max(flat))
-    plt.hist(flat, bins=250)
-    plt.title('Demand density')
-    plt.xlabel('Demand (MW)')
-    plt.ylabel('Frequency')
+    #print('range', min(flat), max(flat))
+    fa = np.array(flat)
+    mean = fa.mean()
+    std = fa.std()
+    print('mean = {:.2f}, std dev = {:.2f}'.format(mean, std))
+    plt.hist(flat, bins=250, normed=True)
+    meanMark = plt.axvline(x=mean, color='r', label='mean')
+    stdMark = plt.axvline(x=mean+std, color='y', label='std')
+    plt.axvline(x=mean-std, color='y')
+    plt.title('Net Demand density')
+    plt.xlabel('Net demand (MW)')
+    plt.ylabel('Normalized frequency')
+    plt.legend([meanMark, stdMark],
+               ['mean = {:.2f}'.format(mean),
+                'std dev = {:.2f}'.format(std)])
     plt.show()
 
 def plotPeakHistogram (horizon):
@@ -207,13 +218,105 @@ def plotPeakHistogram (horizon):
     hours = horizon * 24
     for game in gameData:
         for i in range(len(game) - hours + 1):
-            peak = max(game[i:i+hours])
-            peaks.append(peak)
+            peak = max(game[i:i+hours], key=(lambda x: x[1]))
+            peaks.append(peak[1])
     plt.hist(peaks, bins=250)
-    plt.title('Peak demand distribution, {0}-day horizon'.format(horizon))
-    plt.xlabel('Peak demand (MW)')
-    plt.ylabel('Frequency')
+    plt.title('Peak demand distribution')
+    plt.xlabel('Net peak demand, horizon = {} days'.format(horizon))
+    plt.ylabel('Frequency (230 games)')
     plt.show()
 
+def plotPeakHourDistribution (horizon, limit, n, weighted=False):
+    '''
+    Plots the hour-of-week for all top-n peak events greater than limit
+    over the given horizon.
+    '''
+    week = 168
+    peakData = [0 for x in range(week)]
+    gamePeaks = []
+    currentPeaks = []
+    noPeakCount = 0
+    integral = 0
+    hours = horizon * 24
+    # iterate over games
+    for game in gameData:
+        currentPeaks = []
+        peakCount = 0
+        hour = 0
+        # iterate over hours in the game
+        for item in game:
+            [how, pwr] = item
+            # clean out expired peaks
+            for peak in currentPeaks:
+                [hr, hw, pk] = peak
+                if hr < (hour - hours):
+                    peak[2] = 0 # smash the peak-power value
+            # possibly add new peak
+            if pwr > limit:
+                currentPeaks.append([hour, how, pwr])
+                peakCount += 1
+            currentPeaks.sort(reverse=True, key=(lambda x: x[2]))
+            # trim the peak list
+            newPeaks = []
+            for peak in currentPeaks:
+                [hr, hw, pk] = peak
+                if pk > 0:
+                    newPeaks.append(peak)
+            currentPeaks = newPeaks[0:n]
+            # count the no-peak instances
+            if len(currentPeaks) == 0:
+                noPeakCount += 1
+            # record the hours
+            for [hr, hw, pk] in currentPeaks:
+                if weighted:
+                    wt = pk - limit
+                else:
+                    wt = 1
+                peakData[hw] += wt
+                integral += wt
+            hour += 1
+        gamePeaks.append(peakCount)
+
+    if weighted:
+        ttl = 'weighted '
+        ylbl = 'Weight/game'
+    else:
+        ttl = ''
+        ylbl = 'Observations/game'
+    print("No peaks: {0} times per game".format(noPeakCount / len(gameData)))
+    print("Integrated value per game", integral / len(gameData))
+    for i in range(len(peakData)):
+        peakData[i] /= len(gameData)
+    x = range(len(peakData))
+    plt.plot(x, peakData)
+    plt.grid(True)
+    plt.xticks(np.arange(0, week + 1, 12))
+    plt.title('Net demand > {0} {1}distribution, {2}-day horizon'.format(limit, ttl, horizon))
+    plt.xlabel('Hour of week')
+    plt.ylabel(ylbl)
+    plt.show()
+   
+def plotGamePeakHistogram (limit):
+    '''
+    Determines the number of peaks over limit for each game, plots result as
+    histogram.
+    '''
+    gamePeaks = []
+    # iterate over games
+    for game in gameData:
+        peakCount = 0
+        # iterate over hours in the game
+        for item in game:
+            [how, pwr] = item
+            # possibly add new peak
+            if pwr > limit:
+                peakCount += 1
+        gamePeaks.append(peakCount)
+    plt.hist(gamePeaks, bins=80)
+    plt.title('Distribution of peaks > {} over games'.format(limit))
+    plt.xlabel('Peak event count')
+    plt.ylabel('Density')
+    plt.show()
+    
 # ----------- debug init ---------
-collectData(tournament)
+# collectData(tournament)
