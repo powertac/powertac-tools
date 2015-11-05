@@ -33,6 +33,7 @@ import DatafileIterator as di
 gameDir = '../../games'
 tournament = 'finals-201504'
 #tournament = 'finals-2014'
+
 logtoolClass = 'org.powertac.logtool.example.ProductionConsumption'
 dataPrefix = 'data/prod-cons-'
 
@@ -54,6 +55,8 @@ weekData = [[] for x in range(168)]
 weekdayData = [[] for x in range(24)]
 weekendData = [[] for x in range(24)]
 dayData = [[] for x in range(24)]
+dataMap = {'Weekly':weekData, 'Weekday':weekdayData, 'Weekend':weekendData,
+           'Daily':dayData}
 
 def processFile (dataFile):
     '''
@@ -110,12 +113,13 @@ def plotMeans (data):
     plt.ylabel('Net demand (MW)')
     plt.show()
 
-def plotContours (data, contours):
+def plotContours (dataName, contours):
     '''
     Extracts data points from the raw data at the given contour intervals.
     The contours arg is a list of probabilities 0.0 < contour <= 1.0.
     For example, contours=[0.05, 0.5, 0.95] plots the 5%, 50%, and 95% contours.
     '''
+    data = dataMap[dataName]
     rows = []
     for c in data:
         c.sort()
@@ -135,7 +139,7 @@ def plotContours (data, contours):
                 row.append(0.0)
     x = range(len(data))
     plt.grid(True)
-    plt.title('Net demand contours')
+    plt.title('{} net demand contours'.format(dataName))
     plt.ylim((0, 110))
     for y,lbl in zip(rows, contours):
         plt.plot(x, y, label = '{0}%'.format(lbl * 100))
