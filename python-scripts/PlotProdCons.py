@@ -12,11 +12,14 @@ Tournament logs (in the form 'game-n-sim-logs.tar.gz') must be in a directory
 named by the tournament var inside a dir named by the gameDir var. The Java
 modules in dir ../logtool-examples must have been built (using mvn clean test).
 
-Usage: Evaluate or import this module to suck in all the data. If necessary,
+Usage: Evaluate or import this module using your Python IDE,
+then call collectData(tournament) to suck in all the data.
+The tournament arg is a subdirectory of ../../games
+containing the compressed game logs of the tournament. If necessary,
 this will unpack the game logs and run the logtoolClass processor over each
 state log to generate the raw data. Once this completes (can take several hours
-the first time, a second or two on subsequent runs), use your Python IDE or
-command-line env to do the plotting. For example, once this module is
+the first time, a second or two on subsequent runs), use the various plotXxx
+functions to do the plotting. For example, once this module is
 imported (import PlotProdCons as pc), the weekday contour plot is
 generated as pc.plotContours(pc.weekdayData, [.02,.25,.5,.75,.98])
 '''
@@ -31,8 +34,6 @@ from pathlib import Path
 import DatafileIterator as di
 
 gameDir = '../../games'
-tournament = 'finals-201504'
-#tournament = 'finals-2014'
 
 logtoolClass = 'org.powertac.logtool.example.ProductionConsumption'
 dataPrefix = 'data/prod-cons-'
@@ -219,7 +220,7 @@ def plotPeakHistogram (horizon):
     specified in days.
     '''
     peaks = []
-    hours = horizon * 24
+    hours = int(horizon * 24)
     for game in gameData:
         for i in range(len(game) - hours + 1):
             peak = max(game[i:i+hours], key=(lambda x: x[1]))
@@ -230,6 +231,48 @@ def plotPeakHistogram (horizon):
     plt.ylabel('Frequency (230 games)')
     plt.show()
 
+def plotPeriodicPeakHistogram (period):
+    '''
+    Divides each game into periods of the specified length (specified in days),
+    plots the distribution of peak demand magnitudes seen in each period.
+    '''
+    peaks = []
+    hours = int(period * 24)
+    for game in gameData:
+        for i in range(0, len(game) - hours + 1, hours):
+            peak = max(game[i:i+hours], key=(lambda x: x[1]))
+            peaks.append(peak[1])
+    plt.hist(peaks, bins=250)
+    plt.title('Periodic peak demand distribution')
+    plt.xlabel('Net peak demand, period = {} days'.format(period))
+    plt.ylabel('Frequency (230 games)')
+    plt.show()
+
+def plotGamePeriodicPeaks (period, threshold):
+    '''
+    Discovers the over-threshold peaks over the given periods in each game,
+    computes the weighted sum per game, plots result as histogram.
+    '''
+    games = []
+    hours = int(period * 24)
+    for game in gameData:
+        gameWeight = 0
+        for i in range(0, len(game) - hours + 1, hours):
+            peak = max(game[i:i+hours], key=(lambda x: x[1]))
+            if peak[1] > threshold:
+                gameWeight += peak[1] - threshold
+        games.append(gameWeight)
+    # Report stats
+    fa = np.array(games)
+    print('mean = {:.2f}, std = {:.3f}'.format(fa.mean(), fa.std()))
+    # Plot histogram
+    plt.hist(games, bins = 50)
+    plt.title('Weighted total of {}-day peaks over {} per game'
+              .format(period, threshold))
+    plt.xlabel('Weighted total')
+    plt.ylabel('Number of games')
+    plt.show()
+        
 def plotPeakHourDistribution (horizon, limit, n, weighted=False):
     '''
     Plots the hour-of-week for all top-n peak events greater than limit
@@ -323,4 +366,6 @@ def plotGamePeakHistogram (limit):
     plt.show()
     
 # ----------- debug init ---------
+tournament = 'finals-201504'
+#tournament = 'finals-2014'
 # collectData(tournament)

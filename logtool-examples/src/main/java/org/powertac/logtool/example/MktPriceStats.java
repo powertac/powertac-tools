@@ -22,6 +22,8 @@ import java.util.Map;
 import java.util.TreeMap;
 
 import org.apache.log4j.Logger;
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeFieldType;
 import org.powertac.common.ClearedTrade;
 import org.powertac.common.TimeService;
 import org.powertac.common.msg.TimeslotUpdate;
@@ -37,11 +39,13 @@ import org.powertac.logtool.ifc.Analyzer;
  * builds an array for each timeslot giving all the market clearings for
  * that timeslot, indexed by leadtime. The output data file has one 
  * line/timeslot formatted as<br>
- * [mwh price] [mwh price] ...<br>
+ * timeslot,day-of-week,hour-of-day,[mwh price],[mwh price] ...<br>
  * Each line has 24 entries, assuming that each timeslot is open for trading
  * 24 times.
  * 
- * Usage: MktPriceStats state-log-filename output-data-filename
+ * If the option '--no-headers' is given, the first three fields are omitted.
+ * 
+ * Usage: MktPriceStats [--no-headers] state-log-filename output-data-filename
  * 
  * @author John Collins
  */
@@ -60,7 +64,8 @@ implements Analyzer
   private int ignoreInitial = 5; // timeslots to ignore at the beginning
   private int ignoreCount = 0;
   private int indexOffset = 0; // should be Competition.deactivateTimeslotsAhead - 1
-  
+
+  private boolean omitHeaders = false;
   private PrintWriter output = null;
   private String dataFilename = "clearedTrades.data";
   
@@ -79,11 +84,16 @@ implements Analyzer
   private void cli (String[] args)
   {
     if (args.length != 2) {
-      System.out.println("Usage: <analyzer> input-file output-file");
+      System.out.println("Usage: <analyzer> [--no-headers] input-file output-file");
       return;
     }
-    dataFilename = args[1];
-    super.cli(args[0], this);
+    int argOffset = 0;
+    if (args[0].equalsIgnoreCase("--no-headers")) {
+      argOffset = 1;
+      omitHeaders = true;
+    }
+    dataFilename = args[argOffset + 1];
+    super.cli(args[argOffset], this);
   }
 
   /* (non-Javadoc)
@@ -116,6 +126,13 @@ implements Analyzer
   {
     for (Map.Entry<Integer, ClearedTrade[]> entry : data.entrySet()) {
       String delim = "";
+      if (!omitHeaders) {
+        // add ts,dow,hod,
+        DateTime dt = timeslotRepo.getDateTimeForIndex(entry.getKey());
+        output.format("%d,%d,%d,", entry.getKey(),
+                      dt.get(DateTimeFieldType.dayOfWeek()),
+                      dt.get(DateTimeFieldType.hourOfDay()));
+      }
       ClearedTrade[] trades = entry.getValue();
       if (trades.length != 24)
         log.error("short array " + trades.length);
@@ -128,7 +145,7 @@ implements Analyzer
                         trades[i].getExecutionMWh(),
                         trades[i].getExecutionPrice());
         }
-        delim = " ";
+        delim = ",";
       }
       output.println();
     }

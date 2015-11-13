@@ -153,8 +153,8 @@ implements Analyzer
     {
       TimeslotUpdate msg = (TimeslotUpdate) thing;
       timeslotCount += 1;
-      System.out.println("-- timeslot " + timeslotCount);
-      //data.flush();
+      data.print("-- timeslot " + timeslotCount);
+      data.flush();
     }
   }
 
