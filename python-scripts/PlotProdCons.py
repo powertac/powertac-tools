@@ -33,8 +33,6 @@ from scipy import stats
 from pathlib import Path
 import DatafileIterator as di
 
-gameDir = '../../games'
-
 logtoolClass = 'org.powertac.logtool.example.ProductionConsumption'
 dataPrefix = 'data/prod-cons-'
 
@@ -45,7 +43,7 @@ def collectData (tournament):
     '''
     Processes data from data files in the specified directory.
     '''
-    for dataFile in di.datafileIter(gameDir + "/" +  tournament,
+    for dataFile in di.datafileIter(tournament,
                                     logtoolClass,
                                     dataPrefix):
         # note that dataFile is a Path, not a string
