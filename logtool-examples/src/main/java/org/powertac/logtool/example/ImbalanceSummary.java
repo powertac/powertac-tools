@@ -39,20 +39,21 @@ import org.powertac.logtool.ifc.Analyzer;
  * to imbalance.
  * 
  * Summary data is printed to System.out in a readable format,
- * and more summary detail is dumped to the specified
+ * and additional summary detail is written to the specified
  * output file in two sections. The first row summarizes game info as
  *  game-id,n_brokers,c_total,cr_total,p_total,pr_total,i_total,i_rms,ir_total
- * where n_brokers is the number of competing brokers (not including th
+ * where n_brokers is the number of competing brokers (not including the
  * default broker), c_total and p_total are the total consumption and
  * production recorded by tariff transactions, cr_total and pr_total are
- * revenue (or cost) associated with consumptoin and production,
+ * revenue (or cost) associated with consumption and production,
  * i_total is the total imbalance recorded by balancing transactions, 
  * i_rms is the rms imbalance, ir_total is the overall imbalance cost
- * paid by all brokers.
+ * paid by all brokers. Signs are from the viewpoint of the broker; positive
+ * values represent incoming cash or energy.
  * 
  * The second section is per-broker summary information, formatted as one
  * line per broker
- *  broker-name,c_broker,cr_broker,p_broker,pr_broker,i_broker,i_rms-broker,z_broker
+ *  broker-name,c_broker,cr_broker,p_broker,pr_broker,i_broker,i_rms-broker,ir_broker
  * where the fields are per-broker versions of the aggregate data
  * 
  * @author John Collins
