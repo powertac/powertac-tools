@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012 by the original author
+ * Copyright (c) 2015 by John Collins
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,12 +28,10 @@ import org.powertac.common.Competition;
 import org.powertac.common.TariffTransaction;
 import org.powertac.common.msg.TimeslotUpdate;
 import org.powertac.common.repo.BrokerRepo;
-import org.powertac.common.spring.SpringApplicationContext;
 import org.powertac.logtool.LogtoolContext;
 import org.powertac.logtool.common.DomainObjectReader;
 import org.powertac.logtool.common.NewObjectListener;
 import org.powertac.logtool.ifc.Analyzer;
-import org.powertac.util.Pair;
 
 /**
  * Example analysis class.
@@ -41,50 +39,52 @@ import org.powertac.util.Pair;
  * to imbalance.
  * 
  * Summary data is printed to System.out in a readable format,
- * and a data file with one row/timeslot. A header row lists the brokers.
- * Subsequent rows show imbalance for each broker, followed by overall
- * imbalance (from balancing transactions) and overall consumption (from
- * tariff transactions).
+ * and more summary detail is dumped to the specified
+ * output file in two sections. The first row summarizes game info as
+ *  game-id,n_brokers,c_total,cr_total,p_total,pr_total,i_total,i_rms,ir_total
+ * where n_brokers is the number of competing brokers (not including th
+ * default broker), c_total and p_total are the total consumption and
+ * production recorded by tariff transactions, cr_total and pr_total are
+ * revenue (or cost) associated with consumptoin and production,
+ * i_total is the total imbalance recorded by balancing transactions, 
+ * i_rms is the rms imbalance, ir_total is the overall imbalance cost
+ * paid by all brokers.
  * 
- * The data file contains per-timeslot imbalance for each broker, along with
- * aggregate imbalance and overall consumption.
+ * The second section is per-broker summary information, formatted as one
+ * line per broker
+ *  broker-name,c_broker,cr_broker,p_broker,pr_broker,i_broker,i_rms-broker,z_broker
+ * where the fields are per-broker versions of the aggregate data
  * 
  * @author John Collins
  */
-public class ImbalanceStats
+public class ImbalanceSummary
 extends LogtoolContext
 implements Analyzer
 {
-  static private Logger log = Logger.getLogger(ImbalanceStats.class.getName());
+  static private Logger log = Logger.getLogger(ImbalanceSummary.class.getName());
 
   private DomainObjectReader dor;
 
   private BrokerRepo brokerRepo;
 
-  // list of BalancingTransactions for current timeslot
-  private HashMap<Broker, BalancingTransaction> btx;
-  private HashMap<Broker, ArrayList<TariffTransaction>> ttx;
+  // Transactions for current timeslot
+  private HashMap<Broker, BalancingTransaction> btx = null;
+  private HashMap<Broker, ArrayList<TariffTransaction>> ttx = null;
 
-  // daily total imbalances, indexed by timeslot
+  // hourly data, indexed by timeslot
   private int timeslot = 0;
-  private ArrayList<Double> dailyImbalance;
-
-  // daily per-broker imbalance, cost
-  private HashMap<Broker, ArrayList<Pair<Double, Double>>> dailyBrokerImbalance;
-
-  // daily tariff transactions
-  private HashMap<Broker, ArrayList<ArrayList<TariffTransaction>>> dailyTraffic;
+  private ArrayList<TimeslotData> aggregateData;
+  private HashMap<Broker, ArrayList<TimeslotData>> hourlyData;
 
   // data output file
   private PrintWriter data = null;
   private String dataFilename = "data.txt";
-  private boolean dataInit = false;
 
   /**
    * Constructor does nothing. Call setup() before reading a file to
    * get this to work.
    */
-  public ImbalanceStats ()
+  public ImbalanceSummary ()
   {
     super();
   }
@@ -95,7 +95,7 @@ implements Analyzer
    */
   public static void main (String[] args)
   {
-    new ImbalanceStats().cli(args);
+    new ImbalanceSummary().cli(args);
   }
   
   /**
@@ -121,11 +121,6 @@ implements Analyzer
   {
     dor = (DomainObjectReader) getBean("reader");
     brokerRepo = (BrokerRepo) getBean("brokerRepo");
-    btx = new HashMap<Broker, BalancingTransaction>();
-    ttx = new HashMap<Broker, ArrayList<TariffTransaction>>();
-    dailyImbalance = new ArrayList<Double>();
-    dailyBrokerImbalance = new HashMap<Broker, ArrayList<Pair<Double, Double>>>();
-    dailyTraffic = new HashMap<Broker, ArrayList<ArrayList<TariffTransaction>>>();
 
     dor.registerNewObjectListener(new TimeslotUpdateHandler(),
                                   TimeslotUpdate.class);
@@ -135,7 +130,6 @@ implements Analyzer
                                   TariffTransaction.class);
     try {
       data = new PrintWriter(new File(dataFilename));
-      dataInit = false;
     }
     catch (FileNotFoundException e) {
       log.error("Cannot open file " + dataFilename);
@@ -145,57 +139,40 @@ implements Analyzer
   @Override
   public void report ()
   {
-    // compute RMS imbalance
-    double sum = 0.0;
-    double sumsq = 0.0;
-    for (Double imbalance : dailyImbalance) {
-      sum += imbalance;
-      sumsq += imbalance * imbalance;
+    TimeslotData totals = new TimeslotData();
+    for (TimeslotData tsData: aggregateData) {
+      totals.add(tsData);
     }
+    double rms = Math.sqrt(totals.imbalanceSumSq / aggregateData.size());
     System.out.println("Game " + Competition.currentCompetition().getName()
                        + ", " + timeslot + " timeslots");
-    System.out.println("Total imbalance = " + sum);
-    System.out.println("RMS imbalance = "
-                       + Math.sqrt(sumsq / dailyImbalance.size()));
+    System.out.println("Total imbalance = " + totals.imbalance);
+    System.out.println("RMS imbalance = " + rms);
+    data.print(String.format("%s,%d,",
+                             Competition.currentCompetition().getName(),
+                             hourlyData.size() - 1));
+    data.println(totals.formatWithRms(rms));
+
     for (Broker broker : brokerRepo.findRetailBrokers()) {
-      reportBrokerImbalance(broker);
+      reportByBroker(broker);
     }
+    data.close();
   }
-  
+
   // Reports individual broker imbalance stats
   // Results include RMS imbalance, average imbalance,
   // total imbalance cost, and mean contribution to total
   // imbalance
-  private void reportBrokerImbalance (Broker broker)
+  private void reportByBroker (Broker broker)
   {
-    double sumsq = 0.0;
-    double imbalanceSum = 0.0;
-    double deliveredSum = 0.0;
-    double contributionSum = 0.0;
-    double cost = 0.0;
-    ArrayList<Pair<Double, Double>> brokerRecord =
-            dailyBrokerImbalance.get(broker);
-    ArrayList<ArrayList<TariffTransaction>> deliveries =
-            dailyTraffic.get(broker);
-    for (int i = 0; i < dailyImbalance.size(); i++) {
-      double total = dailyImbalance.get(i);
-      double individual = brokerRecord.get(i).car();
-      sumsq += individual * individual;
-      imbalanceSum += individual;
-      double sgn = Math.signum(individual) * Math.signum(total);
-      contributionSum += Math.abs(individual) * sgn;
-      cost += brokerRecord.get(i).cdr();
-      for (TariffTransaction tx : deliveries.get(i))
-        deliveredSum += tx.getKWh();
+    TimeslotData total = new TimeslotData();
+    ArrayList<TimeslotData> brokerData = hourlyData.get(broker);
+    for (TimeslotData tsData: brokerData) {
+      total.add(tsData);
     }
-    int count = dailyImbalance.size();
-    System.out.println("Broker " + broker.getUsername()
-                       + "\n  RMS imbalance = " + Math.sqrt(sumsq / count)
-                       + "\n  mean imbalance = " + imbalanceSum / count
-                       + "\n  imbalance ratio = " + imbalanceSum / deliveredSum
-                       + "\n  mean contribution = " + contributionSum / count
-                       + "\n  mean cost = " + cost / count
-                       + "(" + cost / imbalanceSum + "/kwh)");
+    double rms = Math.sqrt(total.imbalanceSumSq / brokerData.size());
+    data.print(broker.getUsername() + ",");
+    data.println(total.formatWithRms(rms));
   }
 
   // Called on timeslotUpdate. Note that there are two of these before
@@ -206,59 +183,41 @@ implements Analyzer
   private void summarizeTimeslot ()
   {
     // skip initial timeslot(s) without data, initialize data structures
-    if (0 == btx.size() && 0 == dailyImbalance.size()) {
-      initTxList();
+    if (null == btx) {
       initData();
-      for (Broker broker : brokerRepo.findRetailBrokers()) {
-        dailyBrokerImbalance.put(broker,
-                                 new ArrayList<Pair<Double, Double>>());
-        dailyTraffic.put(broker,
-                         new ArrayList<ArrayList<TariffTransaction>>());
-      }
+      initTxList();
       return;
     }
 
-    // iterate through the balancing and tariff transactions
-    double totalImbalance = 0.0;
-    double totalConsumption = 0.0;
+    // iterate through the balancing and tariff transactions for each broker
     for (Broker broker : brokerRepo.findRetailBrokers()) {
-      // capture summary data for printout
-      double balancingQty = 0.0;
-      double consumptionQty = 0.0;
+      TimeslotData tsData = new TimeslotData();
+      hourlyData.get(broker).add(tsData);
+      TimeslotData aggregate = new TimeslotData();
+      aggregateData.add(aggregate);
       // balancing tx first
       BalancingTransaction bx = btx.get(broker);
-      ArrayList<Pair<Double, Double>> entries = dailyBrokerImbalance.get(broker);
-      if (null == bx) {
-        // zero entries
-        entries.add(new Pair<Double, Double>(0.0, 0.0));
-        data.print(" 0.0");
+      if (null != bx) {
+        tsData.imbalance = bx.getKWh();
+        aggregate.imbalance += bx.getKWh();
+        tsData.imbalanceCost = bx.getCharge();
+        aggregate.imbalanceCost += bx.getCharge();
       }
-      else {
-        entries.add(new Pair<Double, Double>(bx.getKWh(), bx.getCharge()));
-        balancingQty = bx.getKWh();
-        data.print(" " + balancingQty);
-        totalImbalance += bx.getKWh();
+      for (TariffTransaction tx: ttx.get(broker)) {
+        if (tx.getTxType() == TariffTransaction.Type.CONSUME) {
+          tsData.consumption += tx.getKWh();
+          aggregate.consumption += tx.getKWh();
+          tsData.income += tx.getCharge();
+          aggregate.income += tx.getCharge();
+        }
+        else if (tx.getTxType() == TariffTransaction.Type.PRODUCE) {
+          tsData.production += tx.getKWh();
+          aggregate.production += tx.getKWh();
+          tsData.expense += tx.getCharge();
+          aggregate.expense += tx.getCharge();
+        }
       }
-      // tariff tx next
-      ArrayList<TariffTransaction> txs = ttx.get(broker);
-      ArrayList<ArrayList<TariffTransaction>> dailyTxs = 
-              dailyTraffic.get(broker);
-      if (null == txs) {
-        dailyTxs.add(new ArrayList<TariffTransaction>());
-      }
-      else {
-        for (TariffTransaction consumption : txs)
-          consumptionQty += consumption.getKWh();
-        totalConsumption += consumptionQty;
-        dailyTxs.add(txs);
-        ttx.put(broker, null);
-      }
-      //log.info("ts " + timeslot + ", broker " + broker.getUsername()
-      //         + ": consumption = " + consumptionQty
-      //         + ", balance qty = " + balancingQty);
     }
-    dailyImbalance.add(totalImbalance);
-    data.println(" " + totalImbalance + " " + totalConsumption);
     timeslot += 1;
     initTxList();
   }
@@ -278,18 +237,19 @@ implements Analyzer
   
   private void initData ()
   {
-    if (dataInit || null == data)
-      return;
-    data.print("columns:");
+    btx = new HashMap<Broker, BalancingTransaction>();
+    ttx = new HashMap<Broker, ArrayList<TariffTransaction>>();
+    initTxList();
+    hourlyData = new HashMap<Broker, ArrayList<TimeslotData>>();
     for (Broker broker : brokerRepo.findRetailBrokers()) {
-      data.print(" " + broker.getUsername());
+      hourlyData.put(broker, new ArrayList<TimeslotData>());
     }
-    data.println(" imbalance consumption");
-    dataInit = true;
+    aggregateData = new ArrayList<TimeslotData>();
   }
 
   // -------------------------------
   // catch BalancingTransactions
+  // We assume there is at most one balancing tx per broker in each timeslot.
   class BalancingTxHandler implements NewObjectListener
   {
     @Override
@@ -309,12 +269,11 @@ implements Analyzer
     {
       TariffTransaction tx = (TariffTransaction)thing;
       // only include consumption
-      if (tx.getTxType() == TariffTransaction.Type.CONSUME) {
-            //|| tx.getTxType() == TariffTransaction.Type.PRODUCE) {
+      if (tx.getTxType() == TariffTransaction.Type.CONSUME
+            || tx.getTxType() == TariffTransaction.Type.PRODUCE) {
         ArrayList<TariffTransaction> txList = ttx.get(tx.getBroker());
         if (null == txList) {
-          txList = new ArrayList<TariffTransaction>();
-          ttx.put(tx.getBroker(), txList);
+          System.err.println("Error: null txList");
         }
         txList.add(tx);
       }
@@ -330,6 +289,43 @@ implements Analyzer
     public void handleNewObject (Object thing)
     {
       summarizeTimeslot();
+    }
+  }
+
+  // --------------------------------------
+  // data holder
+  class TimeslotData
+  {
+    double production = 0.0;
+    double expense = 0.0;
+    double consumption = 0.0;
+    double income = 0.0;
+    double imbalance = 0.0;
+    double imbalanceSumSq = 0.0;
+    double imbalanceCost = 0.0;
+
+    TimeslotData ()
+    {
+      super();
+    }
+
+    // Aggregates another item with this one
+    void add (TimeslotData data)
+    {
+      production += data.production;
+      expense += data.expense;
+      consumption += data.consumption;
+      income += data.income;
+      imbalance += data.imbalance;
+      imbalanceSumSq += data.imbalance * data.imbalance;
+      imbalanceCost += data.imbalanceCost;
+    }
+
+    public String formatWithRms (double rms)
+    {
+      return String.format("%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f",
+                           consumption, income, production, expense,
+                           imbalance, rms, imbalanceCost);
     }
   }
 }
