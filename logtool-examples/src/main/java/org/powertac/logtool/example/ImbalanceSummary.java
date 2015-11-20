@@ -54,7 +54,7 @@ import org.powertac.logtool.ifc.Analyzer;
  * The second section is per-broker summary information, formatted as one
  * line per broker
  *  broker-name,c_broker,cr_broker,p_broker,pr_broker,i_broker,i_rms-broker,ir_broker
- * where the fields are per-broker versions of the aggregate data
+ * where the fields are per-broker versions of the aggregate data.
  * 
  * @author John Collins
  */
