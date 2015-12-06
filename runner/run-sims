@@ -1,0 +1,30 @@
+#!/bin/bash
+
+# Runs multiple games with specified brokers
+#
+# Usage:
+#  run-sims [-c config] n broker ...
+
+# Strip off options
+config=''
+while getopts ":c:" opt ; do
+    case $opt in
+	c  ) config="--config $OPTARG" ;;
+	\? ) echo 'usage: run-sims [-c config] n broker ...'
+	     exit 1
+    esac
+done
+shift $(($OPTIND - 1))
+
+num=$1
+shift
+
+let x=1
+while [ $x -le $num ] ; do
+    # boot session first
+    mvn -Pcli -Dexec.args="--boot boot-g${x}.xml --log-suffix boot-${x} $config"
+
+    # followed by sim session
+    mvn -Pcli -Dexec.args="--sim --boot-data boot-g${x}.xml --log-suffix sim-${x} $config --brokers $@"
+    let x=x+1
+done

@@ -32,6 +32,8 @@ import pylab as pl
 from scipy import stats
 from pathlib import Path
 import DatafileIterator as di
+import statistics as st
+import math
 
 logtoolClass = 'org.powertac.logtool.example.ProductionConsumption'
 dataPrefix = 'data/prod-cons-'
@@ -39,17 +41,31 @@ dataPrefix = 'data/prod-cons-'
 #logtoolClass = 'org.powertac.logtool.example.SolarProduction'
 #dataPrefix = 'data/solar-prod-'
 
-def collectData (tournament):
+def collectAllData (tournament):
+    collectData(tournament)
+    collectData(tournament, logtype='boot')
+
+def collectData (tournament, logtype='sim'):
     '''
-    Processes data from data files in the specified directory.
+    Processes data from sim data files in the specified directory.
     '''
-    for dataFile in di.datafileIter(tournament,
-                                    logtoolClass,
-                                    dataPrefix):
+    actualPrefix = dataPrefix
+    if logtype != 'sim':
+        actualPrefix = dataPrefix + '{}-'.format(logtype)
+    for [gameId, dataFile] in di.datafileIter(tournament,
+                                              logtoolClass,
+                                              actualPrefix,
+                                              logtype=logtype):
         # note that dataFile is a Path, not a string
-        processFile(str(dataFile))
+        if logtype == 'sim':
+            processFile(gameId, str(dataFile))
+        else:
+            processBootFile(gameId, str(dataFile))
 
 gameData = []
+gameDict = {}
+bootDict = {}
+bootStats = {}
 weekData = [[] for x in range(168)]
 weekdayData = [[] for x in range(24)]
 weekendData = [[] for x in range(24)]
@@ -57,7 +73,7 @@ dayData = [[] for x in range(24)]
 dataMap = {'Weekly':weekData, 'Weekday':weekdayData, 'Weekend':weekendData,
            'Daily':dayData}
 
-def processFile (dataFile):
+def processFile (gameId, dataFile):
     '''
     Collects data from a data file into a global 168-column array,
     one column per hour-of-week.
@@ -66,6 +82,7 @@ def processFile (dataFile):
     data = open(dataFile, 'r')
     gameSeries = []
     gameData.append(gameSeries)
+    gameDict[gameId] = gameSeries
     junk = data.readline() # skip first line
     for line in data.readlines():
         row = line.split(', ')
@@ -85,6 +102,27 @@ def processFile (dataFile):
         else:
             #weekend
             weekendData[hod].append(net)
+
+def processBootFile (gameId, dataFile):
+    '''
+    Collects data from a bootstrap data file into a global 168-column array,
+    one column per hour-of-week.
+    Note that the day-of-week numbers are in the range [1-7].
+    '''
+    data = open(dataFile, 'r')
+    gameSeries = []
+    bootDict[gameId] = gameSeries
+    junk = data.readline() # skip first line
+    for line in data.readlines():
+        row = line.split(', ')
+        dow = int(row[1])
+        hod = int(row[2])
+        how = (dow - 1) * 24 + hod # hour-of-week
+        prod = floatMaybe(row[3])
+        cons = floatMaybe(row[4])
+        #if cons < 0.0: # omit rows where cons == 0
+        net = -prod - cons
+        gameSeries.append([how, net])
 
 def floatMaybe (str):
     '''returns the float representation of a string, unless the string is
@@ -362,6 +400,97 @@ def plotGamePeakHistogram (limit):
     plt.xlabel('Peak event count')
     plt.ylabel('Density')
     plt.show()
+
+def plotStdContours(mult, contours):
+    '''
+    Computes mean and standard deviation from end-of-boot through end-of-game,
+    plots pk = (mean + mult * std_dev) contours
+    '''
+    games = [] # capture pk values for each game in each timeslot
+    # timeslot zero comes from the boot data
+    index = 0
+    minCount = 1e6
+    for key in bootDict:
+        # iterate over games
+        series = bootDict[key]
+        game = []
+        games.append(game)
+        cons = [d for [h,d] in series]
+        mean = st.mean(cons)
+        std = st.stdev(cons)
+        game.append(mean + mult * std)
+        gsum = sum(cons)
+        gsumsq = sum([math.pow(d - mean, 2.0) for d in cons])
+        count = len(cons)
+        for [how, gcons] in gameDict[key]:
+            # iterate over timeslots in game
+            gsum += gcons
+            count += 1
+            mean = gsum / count
+            gsumsq += math.pow(gcons - mean, 2.0)
+            std = math.sqrt(gsumsq / count)
+            game.append(mean + mult * std)
+        if len(game) < minCount:
+            minCount = len(game)
+    # Each row in games is now a game.
+    # We need rows to be timeslots
+    timeslots = [[] for idx in range(minCount)]
+    for ts in range(len(timeslots)):
+        for game in range(len(games)):
+            timeslots[ts].append(games[game][ts])
+
+    rows = []
+    for c in timeslots:
+        c.sort()
+    for prob in contours:
+        row = []
+        rows.append(row)
+        for c in timeslots:
+            n = len(c)
+            if n > 0:
+                index = round((n - 0.5) * prob)
+                if index < 0:
+                    index = 0
+                if index >= n:
+                    index = n - 1
+                row.append(c[index])
+            else:
+                row.append(0.0)
+
+    x = [d/168 for d in range(len(timeslots))]
+    plt.grid(True)
+    plt.title('peak demand contours, mult={}'.format(mult))
+    for y,lbl in zip(rows, contours):
+        plt.plot(x, y, label = '{0}%'.format(lbl * 100))
+    plt.xlabel('Week')
+    plt.ylabel('Peak demand threshold (MW)')
+    plt.legend()
+    plt.show()
+
+def bootTransitionHistogram (ratio=False):
+    '''
+    Plots histogram of the difference between the mean demand during the
+    2-week boot period and the first 2 weeks of the corresponding sim.
+    '''
+    diffs = []
+    for key in bootDict:
+        boot = [d for [h,d] in bootDict[key]]
+        game = [d for [h,d] in gameDict[key][:(2 * 7 * 24)]]
+        if ratio:
+            diffs.append(st.mean(game) / st.mean(boot))
+        else:
+            diffs.append(st.mean(game) - st.mean(boot))
+    plt.hist(diffs, bins=50)
+    op = '-'
+    unit = ' (MW)'
+    if ratio:
+        op = '/'
+        unit = ''
+    plt.title('Distribution of game {} boot demand over games'.format(op))
+    plt.xlabel('mean game demand {} mean boot demand{}'.format(op, unit))
+    plt.ylabel('observations')
+    plt.show()
+
     
 # ----------- debug init ---------
 tournament = 'finals-201504'

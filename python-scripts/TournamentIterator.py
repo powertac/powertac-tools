@@ -11,25 +11,27 @@ import re
 import subprocess
 from pathlib import Path
 
-def stateLogIter (tournamentDir):
+def stateLogIter (tournamentDir, logtype='sim'):
     '''
     Returns a generator of state logs extracted from a directory
     of compressed game logs
     '''
     path = Path(tournamentDir)
-    return (extractStateLog(name) for name in path.glob('game-*-sim-logs.tar.gz'))
+    return (extractStateLog(name, logtype)
+            for name in path.glob('game-*-{}-logs.tar.gz'.format(logtype)))
 
-gameIdRe = re.compile('game-(\d+)-sim-logs.tar.gz')
-def extractStateLog (gameLog):
+def extractStateLog (gameLog, logtype):
     '''
     Extracts logs from compressed game log file, if not already extracted.
     Returns path to state log.
     '''
+    gameIdRe = re.compile('game-(\d+)-{}-logs.tar.gz'.format(logtype))
     path = Path(gameLog)
     m = gameIdRe.search(str(path))
     if m:
         gameId = m.group(1)
-        logPath = Path(path.parent, 'log', 'powertac-sim-' + gameId + '.state')
+        logPath = Path(path.parent, 'log',
+                       'powertac-{}-{}.state'.format(logtype, gameId))
         if not logPath.exists():
             p1 = subprocess.Popen(['tar', 'xzf', path.name], cwd = str(path.parent))
             p1.wait()

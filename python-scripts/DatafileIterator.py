@@ -11,12 +11,12 @@ from pathlib import Path
 logtoolDir = "../logtool-examples"
 processEnv = {'JAVA_HOME': '/usr/lib/jvm/java-7-oracle'}
 
-stateIdRe = re.compile('powertac-sim-(\d+).state')
-def extractData (statefileName, extractorClass, dataPrefix, options):
+def extractData (statefileName, extractorClass, dataPrefix, options, logtype):
     '''
     Extracts data from individual game state log, leaving
     result in data/gameid-pc.data
     '''
+    stateIdRe = re.compile('powertac-{}-(\d+).state'.format(logtype))
     print(statefileName)
     m = stateIdRe.search(statefileName)
     if not m:
@@ -33,18 +33,18 @@ def extractData (statefileName, extractorClass, dataPrefix, options):
                         statefileName,
                         ' ',
                         datafileName])
-        #print(os.getcwd())
-        #print(args)
         subprocess.check_output(['mvn', 'exec:exec',
                                  '-Dexec.args=' + args],
                                 env = processEnv,
                                 cwd = logtoolDir)
-    return str(dataPath)
+    return [gameId, str(dataPath)]
 
-def datafileIter (tournamentDir, extractorClass, dataPrefix, options=''):
+def datafileIter (tournamentDir, extractorClass, dataPrefix,
+                  extractorOptions='', logtype='sim'):
     '''
     Iterates through game logs found in tournamentDir, extracting production
     and consumption data
     '''
-    return (extractData(str(statelog), extractorClass, dataPrefix, options)
-            for statelog in ti.stateLogIter(tournamentDir))
+    return (extractData(str(statelog), extractorClass,
+                        dataPrefix, extractorOptions, logtype)
+            for statelog in ti.stateLogIter(tournamentDir, logtype=logtype))
