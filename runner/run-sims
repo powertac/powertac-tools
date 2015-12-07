@@ -23,8 +23,13 @@ let x=1
 while [ $x -le $num ] ; do
     # boot session first
     mvn -Pcli -Dexec.args="--boot boot-g${x}.xml --log-suffix boot-${x} $config"
+    tar czf game-${x}-boot-logs.tar.gz log/powertac-boot-${x}.state log/powertac-boot-${x}.trace
+    rm log/powertac-boot-${x}.state log/powertac-boot-${x}.trace
 
     # followed by sim session
     mvn -Pcli -Dexec.args="--sim --boot-data boot-g${x}.xml --log-suffix sim-${x} $config --brokers $@"
+    tar czf game-${x}-sim-logs.tar.gz log/powertac-sim-${x}.state log/powertac-sim-${x}.trace
+    rm log/powertac-sim-${x}.state log/powertac-sim-${x}.trace
+
     let x=x+1
 done
