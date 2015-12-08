@@ -41,13 +41,15 @@ dataPrefix = 'data/prod-cons-'
 #logtoolClass = 'org.powertac.logtool.example.SolarProduction'
 #dataPrefix = 'data/solar-prod-'
 
-def collectAllData (tournament):
-    collectData(tournament)
-    collectData(tournament, logtype='boot')
+def collectAllData (tournament, force=False):
+    collectData(tournament, force=force)
+    collectData(tournament, logtype='boot', force=force)
 
-def collectData (tournament, logtype='sim'):
+def collectData (tournament, logtype='sim', force=False):
     '''
     Processes data from sim data files in the specified directory.
+    Use force=True to force re-analysis of the data. Otherwise the logtool
+    code won't be run if its output is already in place.
     '''
     actualPrefix = dataPrefix
     if logtype != 'sim':
@@ -55,7 +57,8 @@ def collectData (tournament, logtype='sim'):
     for [gameId, dataFile] in di.datafileIter(tournament,
                                               logtoolClass,
                                               actualPrefix,
-                                              logtype=logtype):
+                                              logtype=logtype,
+                                              force = force):
         # note that dataFile is a Path, not a string
         if logtype == 'sim':
             processFile(gameId, str(dataFile))

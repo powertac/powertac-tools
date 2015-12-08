@@ -11,7 +11,8 @@ from pathlib import Path
 logtoolDir = "../logtool-examples"
 processEnv = {'JAVA_HOME': '/usr/lib/jvm/java-7-oracle'}
 
-def extractData (statefileName, extractorClass, dataPrefix, options, logtype):
+def extractData (statefileName, extractorClass,
+                 dataPrefix, options, logtype, force):
     '''
     Extracts data from individual game state log, leaving
     result in data/gameid-pc.data
@@ -27,7 +28,7 @@ def extractData (statefileName, extractorClass, dataPrefix, options, logtype):
     dataPath = Path(logtoolDir, datafileName)
     if not options == '' and not options.endswith(' '):
         options.append(' ')
-    if not dataPath.exists():
+    if force or not dataPath.exists():
         args = ''.join([extractorClass, ' ',
                         options,
                         statefileName,
@@ -40,11 +41,11 @@ def extractData (statefileName, extractorClass, dataPrefix, options, logtype):
     return [gameId, str(dataPath)]
 
 def datafileIter (tournamentDir, extractorClass, dataPrefix,
-                  extractorOptions='', logtype='sim'):
+                  extractorOptions='', logtype='sim', force=False):
     '''
     Iterates through game logs found in tournamentDir, extracting production
     and consumption data
     '''
     return (extractData(str(statelog), extractorClass,
-                        dataPrefix, extractorOptions, logtype)
+                        dataPrefix, extractorOptions, logtype, force)
             for statelog in ti.stateLogIter(tournamentDir, logtype=logtype))
