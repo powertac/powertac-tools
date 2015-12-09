@@ -42,7 +42,10 @@ import org.powertac.logtool.ifc.Analyzer;
  *   customer energy production and cost
  *   total customer-provided balancing energy and cost
  *   total imbalance and cost
- * 
+ *
+ * If the --with-gameid option is given, then the first column is the 
+ * integer portion of the gameid.
+ *
  * To gather this data, we run through a series of states in each timeslot:
  * 1. Wait for TimeslotUpdate
  * 2. Gather MarketTransaction instances until the first TariffTransaction
@@ -59,7 +62,10 @@ import org.powertac.logtool.ifc.Analyzer;
  * 5. Gather BalancingTransaction instances until a TimeslotUpdate arrives.
  *    These give total net imbalance (after the local balancing controls are
  *    applied) for each broker, and the cost to resolve it.
- * 
+ *
+ * Usage:
+ *   EnergyMixStats [--with-gameid] state-log data-file
+ *
  * @author John Collins
  */
 public class EnergyMixStats
@@ -98,6 +104,10 @@ implements Analyzer
   private String dataFilename = "data.txt";
   private boolean dataInit = false;
 
+  // gameId data
+  private int gameid = 0;
+  private boolean printGameid = false;
+
   /**
    * Constructor does nothing. Call setup() before reading a file to
    * get this to work.
@@ -122,12 +132,17 @@ implements Analyzer
    */
   private void cli (String[] args)
   {
-    if (args.length != 2) {
-      System.out.println("Usage: <analyzer> input-file output-file");
+    if (args.length < 2) {
+      System.out.println("Usage: <analyzer>  [--with-gameid] input-file output-file");
       return;
     }
-    dataFilename = args[1];
-    super.cli(args[0], this);
+    int argOffset = 0;
+    if (args[0].equalsIgnoreCase("--with-gameid")) {
+      argOffset = 1;
+      printGameid = true;
+    }
+    dataFilename = args[argOffset + 1];
+    super.cli(args[argOffset], this);
   }
 
   /**
@@ -189,6 +204,14 @@ implements Analyzer
   {
     if (!dataInit) {
       // first time through nothing to but print header
+      if (printGameid) {
+        // first column is integer game ID
+        data.print("game-id, ");
+        String game = Competition.currentCompetition().getName();
+        // game is of the form "game-n"
+        // We force an integer in order to get an exception if it's not an int
+        gameid = Integer.parseInt(game.substring(5));
+      }
       data.println("slot, import, cost, cons, revenue, prod, cost, "
                    + "up-reg, cost, down-reg, revenue, imbalance, cost");
       initSummaryData();
@@ -200,6 +223,10 @@ implements Analyzer
       return;
     }
 
+    // optionally print game id
+    if (printGameid) {
+      data.print(String.valueOf(gameid) + ", ");
+    }
     // print timeslot index
     data.print(timeslot + ", ");
     // print market data

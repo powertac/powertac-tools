@@ -3,14 +3,16 @@
 # Runs multiple games with specified brokers
 #
 # Usage:
-#  run-sims [-c config] n broker ...
+#  run-sims [-c config] [-s start-count] count broker ...
 
 # Strip off options
 config=''
-while getopts ":c:" opt ; do
+offset=1
+while getopts ":c:s:" opt ; do
     case $opt in
 	c  ) config="--config $OPTARG" ;;
-	\? ) echo 'usage: run-sims [-c config] n broker ...'
+	s  ) offset=$OPTARG ;;
+	\? ) echo 'usage: run-sims [-c config] [-s start-count] n broker ...'
 	     exit 1
     esac
 done
@@ -19,8 +21,9 @@ shift $(($OPTIND - 1))
 num=$1
 shift
 
-let x=1
-while [ $x -le $num ] ; do
+let y=0
+while [ $y -lt $num ] ; do
+    x=$(($y + $offset))
     # boot session first
     mvn -Pcli -Dexec.args="--boot boot-g${x}.xml --log-suffix boot-${x} $config"
     tar czf game-${x}-boot-logs.tar.gz log/powertac-boot-${x}.state log/powertac-boot-${x}.trace
@@ -31,5 +34,5 @@ while [ $x -le $num ] ; do
     tar czf game-${x}-sim-logs.tar.gz log/powertac-sim-${x}.state log/powertac-sim-${x}.trace
     rm log/powertac-sim-${x}.state log/powertac-sim-${x}.trace
 
-    let x=x+1
+    let y=y+1
 done
