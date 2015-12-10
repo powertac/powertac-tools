@@ -37,12 +37,13 @@ def collectData (tournamentDir):
     Processes data from data files in the specified directory.
     '''
     for dataFile in di.datafileIter(tournamentDir,
-                                    logtoolClass, logtoolDir,
-                                    dataPrefix, options):
+                                    logtoolClass, dataPrefix,
+                                    options, logtype='sim',
+                                    force=False, logtoolDir):
         # note that dataFile is a Path, not a string
             
-            processFile(str(dataFile))
-            #print(str(dataFile))
+        processFile(str(dataFile))
+        #print(str(dataFile))
 
 
 def processFile (dataFile):
