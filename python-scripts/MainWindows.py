@@ -26,11 +26,11 @@ elif os.name == 'posix':
 '''Edit these parameters to suit data.'''
 logtoolClass = 'org.powertac.logtool.example.EnergyMixStats'
 dataPrefix = 'data/energy-mix-stats-'   
-outdir = os.path.join(wd, 'output/')
+outdir = os.path.join('C:/Users/Mohammad/Documents/Google Drive/PhD/PowerTAC Analysis/Plotting/', 'output/')
 output = os.path.join(outdir, "energymixstats.csv")
 f = open(output,'w')
-f.write("slot, import, cost, cons, revenue, prod, cost, up-reg, cost, down-reg, revenue, imbalance, cost\n")
-options = ''
+f.write("game-id, slot, import, cost, cons, revenue, prod, cost, up-reg, cost, down-reg, revenue, imbalance, cost\n")
+options = '--with-gameid'
     
 def collectData (tournamentDir):
     '''
@@ -39,10 +39,9 @@ def collectData (tournamentDir):
     for dataFile in di.datafileIter(tournamentDir,
                                     logtoolClass, dataPrefix,
                                     options, logtype='sim',
-                                    force=False, logtoolDir):
+                                    force=False, logtoolDir = logtoolDir):
         # note that dataFile is a Path, not a string
-            
-        processFile(str(dataFile))
+        processFile(str(dataFile[1]))
         #print(str(dataFile))
 
 
@@ -51,6 +50,7 @@ def processFile (dataFile):
     Collects data from a data file and writes 
     into the (already opened) CSV file.
     '''
+    print(dataFile)
     data = open(dataFile, 'r')
     data.readline() # skip first line. Remove if unneeded
     for line in data.readlines():
@@ -58,9 +58,8 @@ def processFile (dataFile):
         '''DEFINE EXPORTING PARAMETERS HERE: '''
         if (row[0] == "Summary"):
             break
-        row0tmp = int(row[0])
-        #row[0] = ''.join(re.findall(r'\d+',row[0]))
-        row1tmp = floatMaybe(row[1])
+        row[0] = ''.join(re.findall(r'\d+',row[0]))
+        row1tmp = int(float(row[1]))
         row2tmp = floatMaybe(row[2])
         row3tmp = floatMaybe(row[3])
         row4tmp = floatMaybe(row[4])
@@ -72,10 +71,11 @@ def processFile (dataFile):
         row10tmp = floatMaybe(row[10])
         row11tmp = floatMaybe(row[11])
         row12tmp = floatMaybe(row[12])
+        row13tmp = floatMaybe(row[13])
         
-        tmp = str("%s,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n" % (row0tmp-360,
-                row1tmp,row2tmp,row3tmp,row4tmp,row5tmp,row6tmp,row7tmp,
-                row8tmp,row9tmp,row10tmp,row11tmp,row12tmp))
+        tmp = str("%s,%s,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n" % (row[0],
+                row1tmp-360,row2tmp,row3tmp,row4tmp,row5tmp,row6tmp,row7tmp,
+                row8tmp,row9tmp,row10tmp,row11tmp,row12tmp,row13tmp))
         f.write(tmp)
         
           
