@@ -17,8 +17,8 @@ elif os.name == 'posix':
     processEnv = {'JAVA_HOME': '/usr/lib/jvm/java-7-oracle'}
 
 
-def extractData (statefileName, extractorClass, logtoolDir,
-                 dataPrefix, options, logtype, force):
+def extractData (statefileName, extractorClass, 
+                 dataPrefix, options, logtype, force, logtoolDir):
     '''
     Extracts data from individual game state log, leaving
     result in data/gameid-pc.data
@@ -55,12 +55,12 @@ def extractData (statefileName, extractorClass, logtoolDir,
             
     return [gameId, str(dataPath)]
 
-def datafileIter (tournamentDir, extractorClass, logtoolDir, dataPrefix,
-                  extractorOptions='', logtype='sim', force=False):
+def datafileIter (tournamentDir, extractorClass, dataPrefix,
+                  extractorOptions='', logtype='sim', force=False, logtoolDir = "../logtool-examples/"):
     '''
     Iterates through game logs found in tournamentDir, extracting production
     and consumption data
     '''
-    return (extractData(str(statelog), extractorClass, logtoolDir,
-                        dataPrefix, extractorOptions, logtype, force)
+    return (extractData(str(statelog), extractorClass, dataPrefix,
+                        extractorOptions, logtype, force, logtoolDir)
             for statelog in ti.stateLogIter(tournamentDir, logtype=logtype))
