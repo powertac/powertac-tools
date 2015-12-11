@@ -24,7 +24,7 @@ def extractData (statefileName, extractorClass,
     result in data/gameid-pc.data
     '''
     stateIdRe = re.compile('powertac-{}-(\d+).state'.format(logtype))
-    print(statefileName)
+    print("Processing ", statefileName)
     m = stateIdRe.search(statefileName)
     if not m:
         print('Failed to find game ID in ' + statefileName)

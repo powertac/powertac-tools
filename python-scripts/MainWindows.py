@@ -24,14 +24,17 @@ elif os.name == 'posix':
     '''ADD LINUX CODE'''
 
 '''Edit these parameters to suit data.'''
-logtoolClass = 'org.powertac.logtool.example.EnergyMixStats'
-dataPrefix = 'data/energy-mix-stats-'   
+logtoolClass = 'org.powertac.logtool.example.ImbalanceSummary'
+dataPrefix = 'data/imbalance-summary-'   
 outdir = os.path.join('C:/Users/Mohammad/Documents/Google Drive/PhD/PowerTAC Analysis/Plotting/', 'output/')
-output = os.path.join(outdir, "energymixstats.csv")
+output = os.path.join(outdir, "imbalancesummary.csv")
 f = open(output,'w')
-f.write("game-id, slot, import, cost, cons, revenue, prod, cost, up-reg, cost, down-reg, revenue, imbalance, cost\n")
-options = '--with-gameid'
-    
+#f.write("game-id-broker, slot, import, cost, cons, revenue, prod, cost, up-reg, cost, down-reg, revenue, imbalance, cost\n")
+options = ''
+'''For future personal use:
+    Line 1: game-id,n_brokers,c_total,cr_total,p_total,pr_total,i_total,i_rms,ir_total
+    Line 2-end: broker-name,c_broker,cr_broker,p_broker,pr_broker,i_broker,i_rms-broker,ir_broker
+    '''
 def collectData (tournamentDir):
     '''
     Processes data from data files in the specified directory.
@@ -50,13 +53,13 @@ def processFile (dataFile):
     Collects data from a data file and writes 
     into the (already opened) CSV file.
     '''
-    print(dataFile)
     data = open(dataFile, 'r')
-    data.readline() # skip first line. Remove if unneeded
+    #data.readline() # skip first line. Remove if unneeded
     for line in data.readlines():
-        row = line.split(', ')
         '''DEFINE EXPORTING PARAMETERS HERE: '''
-        if (row[0] == "Summary"):
+        #row = line.split(', ')
+        f.write(line)
+        '''if (row[0] == "Summary"):
             break
         row[0] = ''.join(re.findall(r'\d+',row[0]))
         row1tmp = int(float(row[1]))
@@ -73,10 +76,10 @@ def processFile (dataFile):
         row12tmp = floatMaybe(row[12])
         row13tmp = floatMaybe(row[13])
         
-        tmp = str("%s,%s,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n" % (row[0],
+        tmp = str("%s,\n" % (row[0],
                 row1tmp-360,row2tmp,row3tmp,row4tmp,row5tmp,row6tmp,row7tmp,
                 row8tmp,row9tmp,row10tmp,row11tmp,row12tmp,row13tmp))
-        f.write(tmp)
+        f.write(tmp)'''
         
           
 def floatMaybe (str):
