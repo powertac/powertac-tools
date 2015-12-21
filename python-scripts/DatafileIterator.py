@@ -8,11 +8,17 @@ import TournamentIterator as ti
 import string, re, os, subprocess
 from pathlib import Path
 
-logtoolDir = "../logtool-examples"
-processEnv = {'JAVA_HOME': '/usr/lib/jvm/java-7-oracle'}
+if os.name == 'nt':
+    #logtoolDir = r"C:/Users/Mohammad/Documents/Google Drive/PhD/Spyder workspace/production-consumption/powertac-tools/logtool-examples"
+    processEnv = {'JAVA_HOME': 'C:/Program Files/Java/jdk1.8.0_66/jre/',
+              'Path' : 'C:/Program Files/apache-maven-3.3.3/bin/'}
+elif os.name == 'posix':
+    #logtoolDir = "../logtool-examples"
+    processEnv = {'JAVA_HOME': '/usr/lib/jvm/java-7-oracle'}
 
-def extractData (statefileName, extractorClass,
-                 dataPrefix, options, logtype, force):
+
+def extractData (statefileName, extractorClass, 
+                 dataPrefix, options, logtype, force, logtoolDir):
     '''
     Extracts data from individual game state log, leaving
     result in data/gameid-pc.data
@@ -27,25 +33,34 @@ def extractData (statefileName, extractorClass,
     datafileName = dataPrefix + gameId + '.data'
     dataPath = Path(logtoolDir, datafileName)
     if not options == '' and not options.endswith(' '):
-        options.append(' ')
+        options += ' '
     if force or not dataPath.exists():
         args = ''.join([extractorClass, ' ',
                         options,
                         statefileName,
                         ' ',
                         datafileName])
-        subprocess.check_output(['mvn', 'exec:exec',
-                                 '-Dexec.args=' + args],
+        args = args.replace("\\","/")
+        if os.name == 'nt':            
+            subprocess.check_output(['mvn', 'exec:exec',
+                                 '-Dexec.args =' + args],
+                                 shell = True,
                                 env = processEnv,
                                 cwd = logtoolDir)
+        elif os.name == 'posix':
+            subprocess.check_output(['mvn', 'exec:exec',
+                                 '-Dexec.args =' + args],
+                                env = processEnv,
+                                cwd = logtoolDir)
+            
     return [gameId, str(dataPath)]
 
 def datafileIter (tournamentDir, extractorClass, dataPrefix,
-                  extractorOptions='', logtype='sim', force=False):
+                  extractorOptions='', logtype='sim', force=False, logtoolDir = "../logtool-examples/"):
     '''
     Iterates through game logs found in tournamentDir, extracting production
     and consumption data
     '''
-    return (extractData(str(statelog), extractorClass,
-                        dataPrefix, extractorOptions, logtype, force)
+    return (extractData(str(statelog), extractorClass, dataPrefix,
+                        extractorOptions, logtype, force, logtoolDir)
             for statelog in ti.stateLogIter(tournamentDir, logtype=logtype))
