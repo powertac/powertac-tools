@@ -31,3 +31,4 @@ cobertura.ser
 *.gz
 *.tgz
 *.bak
+*.pyc

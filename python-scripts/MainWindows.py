@@ -18,31 +18,33 @@ if os.name == 'nt':
     wd = 'C:/Users/Mohammad/Documents/GitHub/Powertac-tools/python-scripts/'
     os.chdir(wd)
     logtoolDir = r"C:/Users/Mohammad/Documents/GitHub/powertac-tools/logtool-examples"
-    logdir = 'F:/PowerTAC/Logs/2015/log/'
-    tournamentDir = 'F:/PowerTAC/Logs/2015/'
+    logdir = 'F:/PowerTAC/Logs/2014/log/'
+    tournamentDir = 'F:/PowerTAC/Logs/2014/'
 elif os.name == 'posix':
     '''ADD LINUX CODE'''
 
 '''Edit these parameters to suit data.'''
 logtoolClass = 'org.powertac.logtool.example.EnergyMixStats'
-dataPrefix = 'data/energy-mix-stats-'   
-outdir = os.path.join(wd, 'output/')
+outdir = os.path.join('C:/Users/Mohammad/Documents/Google Drive/PhD/PowerTAC Analysis/Plotting/output csvs/2014/')
+dataPrefix = 'data/energy-mix-stats-'  
+#C:\Users\Mohammad\Documents\Google Drive\PhD\PowerTAC Analysis\Plotting\output csvs\2014\data
 output = os.path.join(outdir, "energymixstats.csv")
 f = open(output,'w')
-f.write("slot, import, cost, cons, revenue, prod, cost, up-reg, cost, down-reg, revenue, imbalance, cost\n")
-options = ''
-    
+f.write("game-id, slot, import, cost, cons, revenue, prod, cost, up-reg, cost, down-reg, revenue, imbalance, cost\n")
+options = '--with-gameid'
+
+
 def collectData (tournamentDir):
     '''
     Processes data from data files in the specified directory.
     '''
     for dataFile in di.datafileIter(tournamentDir,
-                                    logtoolClass, logtoolDir,
-                                    dataPrefix, options):
+                                    logtoolClass, dataPrefix,
+                                    options, logtype='sim',
+                                    force=False, logtoolDir = logtoolDir):
         # note that dataFile is a Path, not a string
-            
-            processFile(str(dataFile))
-            #print(str(dataFile))
+        processFile(str(dataFile[1]))
+        #print(str(dataFile))
 
 
 def processFile (dataFile):
@@ -51,15 +53,14 @@ def processFile (dataFile):
     into the (already opened) CSV file.
     '''
     data = open(dataFile, 'r')
-    data.readline() # skip first line. Remove if unneeded
+    #data.readline() # skip first line. Remove if unneeded
     for line in data.readlines():
-        row = line.split(', ')
         '''DEFINE EXPORTING PARAMETERS HERE: '''
-        if (row[0] == "Summary"):
-            break
-        row0tmp = int(row[0])
-        #row[0] = ''.join(re.findall(r'\d+',row[0]))
-        row1tmp = floatMaybe(row[1])
+        row = line.split(', ')
+        if ((row[0] != "Summary") & (row[0] != "game-id")):
+            f.write(line)
+        '''row[0] = ''.join(re.findall(r'\d+',row[0]))
+        row1tmp = int(float(row[1]))
         row2tmp = floatMaybe(row[2])
         row3tmp = floatMaybe(row[3])
         row4tmp = floatMaybe(row[4])
@@ -71,11 +72,12 @@ def processFile (dataFile):
         row10tmp = floatMaybe(row[10])
         row11tmp = floatMaybe(row[11])
         row12tmp = floatMaybe(row[12])
+        row13tmp = floatMaybe(row[13])
         
-        tmp = str("%s,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n" % (row0tmp-360,
-                row1tmp,row2tmp,row3tmp,row4tmp,row5tmp,row6tmp,row7tmp,
-                row8tmp,row9tmp,row10tmp,row11tmp,row12tmp))
-        f.write(tmp)
+        tmp = str("%s,\n" % (row[0],
+                row1tmp-360,row2tmp,row3tmp,row4tmp,row5tmp,row6tmp,row7tmp,
+                row8tmp,row9tmp,row10tmp,row11tmp,row12tmp,row13tmp))
+        f.write(tmp)'''
         
           
 def floatMaybe (str):

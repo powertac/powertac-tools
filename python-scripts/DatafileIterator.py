@@ -24,7 +24,7 @@ def extractData (statefileName, extractorClass,
     result in data/gameid-pc.data
     '''
     stateIdRe = re.compile('powertac-{}-(\d+).state'.format(logtype))
-    print(statefileName)
+    print("Processing ", statefileName)
     m = stateIdRe.search(statefileName)
     if not m:
         print('Failed to find game ID in ' + statefileName)
@@ -41,7 +41,7 @@ def extractData (statefileName, extractorClass,
                         ' ',
                         datafileName])
         args = args.replace("\\","/")
-        if os.name == 'nt':            
+        if os.name == 'nt':
             subprocess.check_output(['mvn', 'exec:exec',
                                  '-Dexec.args =' + args],
                                  shell = True,
