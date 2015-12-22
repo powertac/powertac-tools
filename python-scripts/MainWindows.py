@@ -18,23 +18,22 @@ if os.name == 'nt':
     wd = 'C:/Users/Mohammad/Documents/GitHub/Powertac-tools/python-scripts/'
     os.chdir(wd)
     logtoolDir = r"C:/Users/Mohammad/Documents/GitHub/powertac-tools/logtool-examples"
-    logdir = 'F:/PowerTAC/Logs/2015/log/'
-    tournamentDir = 'F:/PowerTAC/Logs/2015/'
+    logdir = 'F:/PowerTAC/Logs/2014/log/'
+    tournamentDir = 'F:/PowerTAC/Logs/2014/'
 elif os.name == 'posix':
     '''ADD LINUX CODE'''
 
 '''Edit these parameters to suit data.'''
-logtoolClass = 'org.powertac.logtool.example.ImbalanceSummary'
-dataPrefix = 'data/imbalance-summary-'   
-outdir = os.path.join('C:/Users/Mohammad/Documents/Google Drive/PhD/PowerTAC Analysis/Plotting/', 'output/')
-output = os.path.join(outdir, "imbalancesummary.csv")
+logtoolClass = 'org.powertac.logtool.example.EnergyMixStats'
+outdir = os.path.join('C:/Users/Mohammad/Documents/Google Drive/PhD/PowerTAC Analysis/Plotting/output csvs/2014/')
+dataPrefix = 'data/energy-mix-stats-'  
+#C:\Users\Mohammad\Documents\Google Drive\PhD\PowerTAC Analysis\Plotting\output csvs\2014\data
+output = os.path.join(outdir, "energymixstats.csv")
 f = open(output,'w')
-#f.write("game-id-broker, slot, import, cost, cons, revenue, prod, cost, up-reg, cost, down-reg, revenue, imbalance, cost\n")
-options = ''
-'''For future personal use:
-    Line 1: game-id,n_brokers,c_total,cr_total,p_total,pr_total,i_total,i_rms,ir_total
-    Line 2-end: broker-name,c_broker,cr_broker,p_broker,pr_broker,i_broker,i_rms-broker,ir_broker
-    '''
+f.write("game-id, slot, import, cost, cons, revenue, prod, cost, up-reg, cost, down-reg, revenue, imbalance, cost\n")
+options = '--with-gameid'
+
+
 def collectData (tournamentDir):
     '''
     Processes data from data files in the specified directory.
@@ -57,11 +56,10 @@ def processFile (dataFile):
     #data.readline() # skip first line. Remove if unneeded
     for line in data.readlines():
         '''DEFINE EXPORTING PARAMETERS HERE: '''
-        #row = line.split(', ')
-        f.write(line)
-        '''if (row[0] == "Summary"):
-            break
-        row[0] = ''.join(re.findall(r'\d+',row[0]))
+        row = line.split(', ')
+        if ((row[0] != "Summary") & (row[0] != "game-id")):
+            f.write(line)
+        '''row[0] = ''.join(re.findall(r'\d+',row[0]))
         row1tmp = int(float(row[1]))
         row2tmp = floatMaybe(row[2])
         row3tmp = floatMaybe(row[3])

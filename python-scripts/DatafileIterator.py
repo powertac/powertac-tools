@@ -41,7 +41,7 @@ def extractData (statefileName, extractorClass,
                         ' ',
                         datafileName])
         args = args.replace("\\","/")
-        if os.name == 'nt':            
+        if os.name == 'nt':
             subprocess.check_output(['mvn', 'exec:exec',
                                  '-Dexec.args =' + args],
                                  shell = True,
