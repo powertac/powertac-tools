@@ -1,4 +1,4 @@
-# IntelliJ IDEA project files
+# IntelliJ and Eclipse project files
 *.iml
 *.ipr
 *.iws
@@ -28,4 +28,7 @@ cobertura.ser
 
 # Generated data files
 *.data
+*.gz
+*.tgz
+*.bak
 *.pyc
