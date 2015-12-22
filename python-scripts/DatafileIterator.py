@@ -8,13 +8,14 @@ import TournamentIterator as ti
 import string, re, os, subprocess
 from pathlib import Path
 
-if os.name == 'nt':
+#if os.name == 'nt':
     #logtoolDir = r"C:/Users/Mohammad/Documents/Google Drive/PhD/Spyder workspace/production-consumption/powertac-tools/logtool-examples"
-    processEnv = {'JAVA_HOME': 'C:/Program Files/Java/jdk1.8.0_66/jre/',
-              'Path' : 'C:/Program Files/apache-maven-3.3.3/bin/'}
-elif os.name == 'posix':
+processEnv = {'JAVA_HOME': os.environ.get('JAVA_HOME'),
+              'Path' : os.environ.get('PATH') }
+               
+#elif os.name == 'posix':
     #logtoolDir = "../logtool-examples"
-    processEnv = {'JAVA_HOME': '/usr/lib/jvm/java-7-oracle'}
+    #processEnv = {'JAVA_HOME': '/usr/lib/jvm/java-7-oracle'}
 
 
 def extractData (statefileName, extractorClass, 
