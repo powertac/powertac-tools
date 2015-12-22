@@ -18,8 +18,8 @@ if os.name == 'nt':
     wd = 'C:/Users/Mohammad/Documents/GitHub/Powertac-tools/python-scripts/'
     os.chdir(wd)
     logtoolDir = r"C:/Users/Mohammad/Documents/GitHub/powertac-tools/logtool-examples"
-    logdir = 'F:/PowerTAC/Logs/2014/log/'
-    tournamentDir = 'F:/PowerTAC/Logs/2014/'
+    logdir = 'E:/PowerTAC/Logs/2014/log/'
+    tournamentDir = 'E:/PowerTAC/Logs/2014/'
 elif os.name == 'posix':
     '''ADD LINUX CODE'''
 
