@@ -28,6 +28,8 @@ output = os.path.join(outdir, "energymixstats.csv")
 f = open(output,'w')
 f.write("game-id, slot, import, cost, cons, revenue, prod, cost, up-reg, cost, down-reg, revenue, imbalance, cost\n")
 options = '--with-gameid'
+force = False
+logtype = 'sim'
 
 
 def collectData (tournamentDir):
@@ -36,8 +38,8 @@ def collectData (tournamentDir):
     '''
     for dataFile in di.datafileIter(tournamentDir,
                                     logtoolClass, dataPrefix,
-                                    options, logtype='sim',
-                                    force=False, logtoolDir = logtoolDir):
+                                    options, logtype,
+                                    force, logtoolDir = logtoolDir):
         # note that dataFile is a Path, not a string
         processFile(str(dataFile[1]))
         #print(str(dataFile))
