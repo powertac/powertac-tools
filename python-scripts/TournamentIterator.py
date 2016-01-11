@@ -7,8 +7,7 @@ paths to state logs extracted from the tournament.
 '''
 # Uses Python 3.4 or later
 
-import re
-import subprocess
+import re, os, tarfile, subprocess
 from pathlib import Path
 
 def stateLogIter (tournamentDir, logtype='sim'):
@@ -33,8 +32,16 @@ def extractStateLog (gameLog, logtype):
         logPath = Path(path.parent, 'log',
                        'powertac-{}-{}.state'.format(logtype, gameId))
         if not logPath.exists():
-            p1 = subprocess.Popen(['tar', 'xzf', path.name], cwd = str(path.parent))
-            p1.wait()
+            if os.name == "posix":
+                p1 = subprocess.Popen(['tar', 'xzf', path.name], shell = True, cwd = str(path.parent))
+                p1.wait()
+            elif os.name == "nt":
+                pathdir = path.parent
+                path = path.as_posix()
+                pathdir = pathdir.as_posix()
+                tar = tarfile.open(path)
+                tar.extractall(pathdir)
+                tar.close()
         return logPath
     else:
         gameId = 'xx'

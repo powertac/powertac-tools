@@ -88,12 +88,13 @@ implements Analyzer
   }
   
   /**
-   * Takes two args, input filename and output filename
+   * Takes at least two args, input filename and output filename.
+   * The --by-broker option changes the output format.
    */
   private void cli (String[] args)
   {
     if (args.length < 2) {
-      System.out.println("Usage: <analyzer> input-file output-file");
+      System.out.println("Usage: <analyzer> [--by-broker] input-file output-file");
       return;
     }
     int argOffset = 0;

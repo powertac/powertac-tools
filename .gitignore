@@ -28,3 +28,4 @@ cobertura.ser
 
 # Generated data files
 *.data
+*.pyc
