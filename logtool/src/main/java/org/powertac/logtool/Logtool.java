@@ -41,6 +41,7 @@ public class Logtool
     lc.processCmdLine(args);
     
     // if we get here, it's time to exit
+    context.close();
     System.exit(0);
   }
 }

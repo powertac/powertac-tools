@@ -60,7 +60,7 @@ public class DomainObjectReader
   HashMap<Class<?>, Class<?>> ifImplementors;
   HashMap<String, Class<?>> substitutes;
   HashSet<String> ignores;
-  HashSet<Class> noIdTypes;
+  HashSet<Class<?>> noIdTypes;
   PowerTypeConverter ptConverter = new PowerTypeConverter();
 
   // listeners
@@ -73,18 +73,18 @@ public class DomainObjectReader
   {
     super();
     idMap = new HashMap<Long, Object>();
-    
+
     // Set up the interface defaults
-    ifImplementors = new HashMap<Class<?>, Class<?>>();
+    ifImplementors = new HashMap<>();
     ifImplementors.put(List.class, ArrayList.class);
     
     // set up substitute list to handle inner classes in a reasonable way
-    substitutes = new HashMap<String, Class<?>>();
+    substitutes = new HashMap<>();
     substitutes.put("org.powertac.du.DefaultBrokerService$LocalBroker",
                     DefaultBroker.class);
 
     // set up the ignore list
-    ignores = new HashSet<String>();
+    ignores = new HashSet<>();
     ignores.add("org.powertac.common.Tariff");
     ignores.add("org.powertac.common.TariffSubscription");
     //ignores.add("org.powertac.genco.Genco");
@@ -100,7 +100,7 @@ public class DomainObjectReader
     ignores.add("org.powertac.factoredcustomer.DefaultUtilityOptimizer$DummyTariffSubscription");
 
     // set up the no-id list
-    noIdTypes = new HashSet<Class>();
+    noIdTypes = new HashSet<>();
     noIdTypes.add(TimeService.class);
     noIdTypes.add(BalanceReport.class);
 
@@ -469,6 +469,7 @@ public class DomainObjectReader
     return result;
   }
   
+  @SuppressWarnings({ "unchecked", "rawtypes" })
   private Object resolveArg (Type type, String arg)
   throws MissingDomainObject
   {
