@@ -32,3 +32,6 @@ cobertura.ser
 *.tgz
 *.bak
 *.pyc
+
+# Other?
+python-scripts/MainWindows.py
