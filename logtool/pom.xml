@@ -7,7 +7,7 @@
   <parent>
     <groupId>org.powertac</groupId>
     <artifactId>server-master</artifactId>
-    <version>1.3.0-SNAPSHOT</version>
+    <version>1.3.1-SNAPSHOT</version>
     <relativePath />
   </parent>
 
@@ -16,8 +16,6 @@
     Tool for analyzing state logs produced by the Power TAC
     simulation server
   </description>
-  <groupId>org.powertac</groupId>
-  <version>1.3.0-SNAPSHOT</version>
   <packaging>jar</packaging>
 
   <properties>
@@ -37,22 +35,22 @@
     <dependency>
       <groupId>org.powertac</groupId>
       <artifactId>default-broker</artifactId>
-      <version>1.3.0-SNAPSHOT</version>
+      <version>1.3.1-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>org.powertac</groupId>
       <artifactId>genco</artifactId>
-      <version>1.3.0-SNAPSHOT</version>
+      <version>1.3.1-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>org.powertac</groupId>
       <artifactId>evcustomer</artifactId>
-      <version>1.3.0-SNAPSHOT</version>
+      <version>1.3.1-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>org.powertac</groupId>
       <artifactId>customer-models</artifactId>
-      <version>1.3.0-SNAPSHOT</version>
+      <version>1.3.1-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>org.springframework</groupId>
@@ -62,7 +60,7 @@
     <dependency>
       <groupId>org.powertac</groupId>
       <artifactId>server-interface</artifactId>
-      <version>1.3.0-SNAPSHOT</version>
+      <version>1.3.1-SNAPSHOT</version>
     </dependency>
   </dependencies>
 
@@ -75,7 +73,7 @@
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>exec-maven-plugin</artifactId>
-        <version>1.2.1</version>
+        <version>1.4.0</version>
         <executions>
           <execution>
             <goals>
