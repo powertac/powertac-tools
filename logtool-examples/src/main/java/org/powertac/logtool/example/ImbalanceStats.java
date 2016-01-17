@@ -28,7 +28,6 @@ import org.powertac.common.Competition;
 import org.powertac.common.TariffTransaction;
 import org.powertac.common.msg.TimeslotUpdate;
 import org.powertac.common.repo.BrokerRepo;
-import org.powertac.common.spring.SpringApplicationContext;
 import org.powertac.logtool.LogtoolContext;
 import org.powertac.logtool.common.DomainObjectReader;
 import org.powertac.logtool.common.NewObjectListener;

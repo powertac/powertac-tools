@@ -2,8 +2,6 @@ package org.powertac.logtool.common;
 
 import static org.junit.Assert.*;
 
-import java.util.List;
-
 import org.junit.Before;
 import org.junit.Test;
 import org.powertac.common.Broker;
@@ -13,8 +11,6 @@ import org.powertac.common.HourlyCharge;
 import org.powertac.common.Order;
 import org.powertac.common.Rate;
 import org.powertac.common.TariffSpecification;
-import org.powertac.common.WeatherForecast;
-import org.powertac.common.WeatherForecastPrediction;
 import org.powertac.common.msg.BalancingOrder;
 
 public class DomainObjectReaderTest
@@ -182,6 +178,7 @@ public class DomainObjectReaderTest
       Broker crocodile = (Broker)dor.readObject(ca);
       Rate rate = (Rate)dor.readObject(r);
       TariffSpecification spec = (TariffSpecification)dor.readObject(ts);
+      spec.addRate(rate);
       Object result = dor.readObject(bo1);
       assertNotNull("should read correctly", result);
       BalancingOrder order = (BalancingOrder)result;

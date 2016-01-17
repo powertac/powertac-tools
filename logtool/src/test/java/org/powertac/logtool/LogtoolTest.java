@@ -15,7 +15,7 @@
  */
 package org.powertac.logtool;
 
-import org.joda.time.Instant;
+//import org.joda.time.Instant;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -26,7 +26,7 @@ import org.junit.Test;
  */
 public class LogtoolTest
 {
-  private Instant baseTime;
+  //private Instant baseTime;
 
   @Before
   public void setUp () throws Exception
