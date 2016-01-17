@@ -364,7 +364,10 @@ implements Analyzer
   }
 
   // -----------------------------------
-  // catch the BalancingReport
+  // catch the BalancingReport -- n
+  // Note that this exists in logs starting with server release 1.2.
+  // For earlier logs, we depend on BalancingTransaction to detect the
+  // state change.
   class BalanceRptHandler implements NewObjectListener
   {
     @Override
@@ -388,6 +391,11 @@ implements Analyzer
     public void handleNewObject (Object thing)
     {
       BalancingTransaction tx = (BalancingTransaction) thing;
+      if (state == stateId.CustTx) {
+        // Should only happen in logs prior to server release 1.2
+        state = stateId.RegTx;
+        log.info("Set state (pre-1.2) to " + state);
+      }
       if (state == stateId.RegTx) {
         state = stateId.BalTx;
         log.info("Set state to " + state);

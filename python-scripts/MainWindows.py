@@ -2,36 +2,34 @@
 """
 Created on Tue Nov 17 15:39:07 2015
 
-@author: Mohammad
+@author: Mohammad Ansarin (ansarin@rsm.nl)
+
+Base code for iterating logtool-example scripts on Power TAC tournament logs.
+Normally creates a .data text file for each log file, then gathers all .data
+files into one .csv file.
+Edit input and output paths and misc. below to suit system setup and data.
 """
 import os, subprocess, re
-#import numpy as np
-#import scipy as sp
-#import matplotlib.pyplot as plt
-#import matplotlib.lines as mline
-#import pylab as pl
-#from scipy import stats
-#from pathlib import Path
-
 import DatafileIterator as di
+
 if os.name == 'nt':
-    wd = 'C:/Users/Mohammad/Documents/GitHub/Powertac-tools/python-scripts/'
+    wd = 'C:/Users/Mohammad/Documents/GitHub/powertac-tools/python-scripts/'
     os.chdir(wd)
     logtoolDir = r"C:/Users/Mohammad/Documents/GitHub/powertac-tools/logtool-examples"
-    logdir = 'F:/PowerTAC/Logs/2014/log/'
-    tournamentDir = 'F:/PowerTAC/Logs/2014/'
+    logdir = 'E:/PowerTAC/Logs/2014/log/'
+    tournamentDir = 'E:/PowerTAC/Logs/2014/'
 elif os.name == 'posix':
     '''ADD LINUX CODE'''
 
-'''Edit these parameters to suit data.'''
 logtoolClass = 'org.powertac.logtool.example.EnergyMixStats'
 outdir = os.path.join('C:/Users/Mohammad/Documents/Google Drive/PhD/PowerTAC Analysis/Plotting/output csvs/2014/')
 dataPrefix = 'data/energy-mix-stats-'  
-#C:\Users\Mohammad\Documents\Google Drive\PhD\PowerTAC Analysis\Plotting\output csvs\2014\data
 output = os.path.join(outdir, "energymixstats.csv")
 f = open(output,'w')
 f.write("game-id, slot, import, cost, cons, revenue, prod, cost, up-reg, cost, down-reg, revenue, imbalance, cost\n")
 options = '--with-gameid'
+force = False
+logtype = 'sim'
 
 
 def collectData (tournamentDir):
@@ -40,8 +38,8 @@ def collectData (tournamentDir):
     '''
     for dataFile in di.datafileIter(tournamentDir,
                                     logtoolClass, dataPrefix,
-                                    options, logtype='sim',
-                                    force=False, logtoolDir = logtoolDir):
+                                    options, logtype,
+                                    force, logtoolDir = logtoolDir):
         # note that dataFile is a Path, not a string
         processFile(str(dataFile[1]))
         #print(str(dataFile))
@@ -55,7 +53,8 @@ def processFile (dataFile):
     data = open(dataFile, 'r')
     #data.readline() # skip first line. Remove if unneeded
     for line in data.readlines():
-        '''DEFINE EXPORTING PARAMETERS HERE: '''
+        '''Define export style here:
+            '''
         row = line.split(', ')
         if ((row[0] != "Summary") & (row[0] != "game-id")):
             f.write(line)
@@ -97,12 +96,6 @@ def main():
     collectData(tournamentDir)
     print("Data extraction complete!")
     
-    '''for i in range(1, 2):
-        file_name = "powertac-sim-" + str(i) + ".state"
-        file_path = os.path.join(logdir, file_name)
-        print ("Processing", file_path)
-        print ("Processing complete!")'''
-        
     f.close()
 
 if __name__ == "__main__":
