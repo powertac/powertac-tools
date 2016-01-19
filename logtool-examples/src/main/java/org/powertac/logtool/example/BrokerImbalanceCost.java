@@ -161,7 +161,14 @@ implements Analyzer
       finalClearing = orderbook.getClearingPrice();
       if (null == finalClearing) {
         // no trades in this timeslot - use first ask instead
-        finalClearing = orderbook.getAsks().first().getLimitPrice();
+        for (OrderbookOrder order: orderbook.getAsks()) {
+          Double price = order.getLimitPrice();
+          if (null != price) {
+            // skip market orders
+            finalClearing = order.getLimitPrice();
+            break;
+          }
+        }
       }
       finalClearing /= 1000.0; // convert to per-kWh
       Iterator<OrderbookOrder> asks = orderbook.getAsks().iterator();
@@ -172,7 +179,10 @@ implements Analyzer
           break;
         }
         OrderbookOrder ask = asks.next();
-        finalClearing = ask.getLimitPrice() / 1000.0;
+        Double price = ask.getLimitPrice();
+        if (null != price)
+          // can be market order in the first position
+          finalClearing = price / 1000.0;
         totalImbalance -= ask.getMWh() * 1000.0;
       }
     }
