@@ -220,6 +220,7 @@ implements Analyzer
     // iterate through the balancing and tariff transactions
     double totalImbalance = 0.0;
     double totalConsumption = 0.0;
+    String sep = "";
     for (Broker broker : brokerRepo.findRetailBrokers()) {
       // capture summary data for printout
       double balancingQty = 0.0;
@@ -230,12 +231,12 @@ implements Analyzer
       if (null == bx) {
         // zero entries
         entries.add(new Pair<Double, Double>(0.0, 0.0));
-        data.print(" 0.0");
+        data.print(sep + "0.0");
       }
       else {
         entries.add(new Pair<Double, Double>(bx.getKWh(), bx.getCharge()));
         balancingQty = bx.getKWh();
-        data.print(" " + balancingQty);
+        data.print(sep + balancingQty);
         totalImbalance += bx.getKWh();
       }
       // tariff tx next
@@ -255,9 +256,10 @@ implements Analyzer
       //log.info("ts " + timeslot + ", broker " + broker.getUsername()
       //         + ": consumption = " + consumptionQty
       //         + ", balance qty = " + balancingQty);
+      sep = ",";
     }
     dailyImbalance.add(totalImbalance);
-    data.println(" " + totalImbalance + " " + totalConsumption);
+    data.println("," + totalImbalance + "," + totalConsumption);
     timeslot += 1;
     initTxList();
   }
@@ -279,11 +281,13 @@ implements Analyzer
   {
     if (dataInit || null == data)
       return;
-    data.print("columns:");
+    //data.print("columns:");
+    String sep = "";
     for (Broker broker : brokerRepo.findRetailBrokers()) {
-      data.print(" " + broker.getUsername());
+      data.print(sep + broker.getUsername());
+      sep = ",";
     }
-    data.println(" imbalance consumption");
+    data.println(",imbalance,consumption");
     dataInit = true;
   }
 
