@@ -28,17 +28,14 @@ library(ggplot2)
 plotPath = file.path("~/Google Drive/PhD/PowerTAC Analysis/Plotting/plots")
 plotWidth = 6
 plotHeight = 4
+setwd("~/Google Drive/PhD/PowerTAC Analysis/Plotting/Imbalance")
 
 imbaDataPrep = function(year) {
-  
   ############################ Data Init and Cleanup ######################################
   
-  # ADJUST PATHS HERE
-  setwd("~/Google Drive/PhD/PowerTAC Analysis/Plotting/12-17 Imbalance plotting")
-  code.path = getwd()
-  data.path = code.path
+  #### Adjust Paths here:
   csv.path = file.path("~/Google Drive/PhD/PowerTAC Analysis/Plotting/output csvs",year)
-  out.file <- file.path(data.path,paste("imbalanceSummary",year,".RData",sep=''))
+  out.file <- file.path(getwd(),paste("imbalanceSummary",year,".RData",sep=''))
   in.file  <- file.path(csv.path, "imbalanceSummary.csv")
   
   if (file.exists(out.file)) {
@@ -58,6 +55,7 @@ imbaDataPrep = function(year) {
   else if (year == "2015") {
     N = 230
   }
+  
   pergame = data.frame("game_id" = rep(NA, N), "n_brokers" = rep(NA,N), "c_total" = rep(NA,N),
                        "cr_total" = rep(NA,N),"p_total" = rep(NA,N), "pr_total" = rep(NA,N), 
                        "i_total" = rep(NA,N), "i_rms" = rep(NA,N), "ir_total" = rep(NA,N), 
@@ -70,7 +68,7 @@ imbaDataPrep = function(year) {
   assign("pergame", pergame, envir = .GlobalEnv)
   save(pergame, file = paste("pergame",year,".RData",sep=''))
   
-  ############ Handling per broker per game data #############
+  ############ Handling per broker data #############
   # broker-name,c_broker,cr_broker,p_broker,pr_broker,i_broker,i_rms-broker,ir_broker
   
   perbroker = data.frame()
@@ -79,6 +77,7 @@ imbaDataPrep = function(year) {
                     "c_broker" = NA,"cr_broker" = NA, "p_broker" = NA, 
                     "pr_broker" = NA, "i_broker" = NA, "i_rms_broker" = NA, 
                     "ir_broker" = NA, stringsAsFactors = FALSE)
+  
   for (i in 1:N) {
     imbalanceSummary$V1 == paste("game",as.character(i),sep="-")
     linenum = pmatch(paste("game",as.character(i),sep="-"),imbalanceSummary$V1)
@@ -105,7 +104,7 @@ imbaDataPrep = function(year) {
   brokerNames = brokerNames[-c(which(brokerNames == "default broker"))]
   assign("brokerNames", brokerNames, envir = .GlobalEnv)
   
-  ########## gameSizes #########
+  ########## gameSizes ############
   if (year == 2014) {
     gameSizes = c(2,4,7)
   }
@@ -115,7 +114,7 @@ imbaDataPrep = function(year) {
   assign("gameSizes", gameSizes, envir = .GlobalEnv)
 
   
-  ########## brokerImbalances #########
+  ########## brokerImbalances ###########
   brokerImbalances = list()
   for (i in gameSizes ) {
     brokerImbalances[[i]] = list()
@@ -129,12 +128,56 @@ imbaDataPrep = function(year) {
   }
   brokerImbalances = Filter(length,brokerImbalances)
   assign("brokerImbalances", brokerImbalances, envir = .GlobalEnv)
+  
+  ############## Broker Profits (imported from cashposition.csv) ################################
+  #### Loads data from cashposition and brokerinfo. Adds profits info to perbroker data frame.
+  if (year == 2015) {
+    in.file.cash  = file.path(csv.path, "cashposition.csv")
+    out.file.cash = file.path(getwd(),paste("cash",year,".RData",sep=''))
+  
+    if (file.exists(out.file.cash)) {
+      message("Loading cash position data from ", out.file.cash)
+      load(out.file.cash)
+    } else {
+      message("Loading cash position data from ", in.file.cash)
+      cash <- read.csv(in.file.cash, header = TRUE, sep = ";")
+      save(cash, file=out.file.cash)
+    }
+    assign("cash", cash, envir = .GlobalEnv)
+    
+    in.file.broker  <- file.path(csv.path, "broker.csv")
+    out.file.broker <- file.path(getwd(), paste("broker",year,".RData",sep=''))  
+    if (file.exists(out.file.broker)) {
+      message("Loading broker data from ", out.file.broker)
+      load(out.file.broker)
+    } else {
+      message("Loading 2015 broker data from ", in.file.broker)
+      brokerinfo <- read.csv(in.file.broker, header = TRUE, sep = ";")
+      save(brokerinfo, file=out.file.broker)
+    }
+    assign("brokerinfo", brokerinfo, envir = .GlobalEnv)
+    
+    if (is.null(perbroker$profits)){
+      perbroker = data.frame(perbroker, "profits" = as.numeric(0))
+    }
+    
+    for (j in 1:tail(cash$game_id,n=1)) {
+      count = nrow(subset(cash, (cash$game_id == j) & (cash$timeslot == 1)))
+      compcash = cash[cash$game_id == j,]### <<<< Added for computational speed. Can also be added to lower subset function
+      for (i in 1:count){
+        broker.name = toString(brokerinfo[brokerinfo$broker_id == i,"broker_name"])
+        temp = subset(compcash, compcash$broker_id==i)
+        result = tail(temp$balance, n=1)
+        perbroker[(perbroker$game_id == j) & (perbroker$broker_name == broker.name),"profits"] = result
+      }
+    }
+    assign("perbroker",perbroker, envir = .GlobalEnv)
+  }
 }
 
 ############################# Plotting ######################################
 plotAveImba = function(year) {
-  # Plots RSM imbalance versus game size. Also shows standard deviations.
-  
+  #### Plots RSM imbalance versus game size. Also shows standard deviations.
   
   load(paste("perbroker",year,".RData",sep=''))
   load(paste("pergame",year,".RData",sep=''))
@@ -151,10 +194,6 @@ plotAveImba = function(year) {
     RMSimba$Average[i] = mean(plotVals)
     RMSimba$STD[i] = sd(plotVals)
   }
-  #plot(RMSimba$Average, type = "b", xlab = "Game Size", ylab = "RMS Imbalance (MWh?)",
-  #     main = "RMS Imbalance, 2014 Finals; averaged over game sizes & brokers", xaxt="n")
-  #axis(1, at=1:length(gameSizes), labels = as.character(gameSizes))
-  #arrows(x,CI.dn,x,CI.up,code=3,length=0.2,angle=90,col='red') ADJUST THIS FOR SD!
   
   RMSimba = data.frame(RMSimba,gameSizes)
   limits = aes(ymax = RMSimba$Average + RMSimba$STD, ymin = RMSimba$Average - RMSimba$STD)
@@ -170,7 +209,7 @@ plotAveImba = function(year) {
 }
 
 plotBrokerImbas = function(year){
-  # Plots RMS imbalance over all games per broker. Also shows standard deviations 
+  #### Plots RMS imbalance over all games per broker. Also shows standard deviations 
   # and average RMS imbalance.
   plotVals = data.frame(matrix(0,length(brokerNames),length(gameSizes)*2+3))
   colnames(plotVals) = c("broker","Ave3","Ave9","Ave11","SD3","SD9","SD11","TotAve","TotSD")
@@ -197,8 +236,8 @@ plotBrokerImbas = function(year){
     scale_y_continuous(limits = c(0,max(plotVals$TotAve + plotVals$TotSD) + 1000)) +
     labs(title = paste("RMS Imbalance per broker,",year,"Finals"), x = "Broker Name", y = "RMS Imbalance (MWh)") +
     theme(text = element_text(size=15),axis.text.x = element_text(angle = 30, hjust = 1))
-  ggsave(paste("RMS Imbalance per broker,",year,"Finals,png"),
-         path = plotPath, width = plotWidth, height = plotHeight)
+  #ggsave(paste("RMS Imbalance per broker,",year,"Finals,png"),
+  #       path = plotPath, width = plotWidth, height = plotHeight)
 }
 
 plotHHI = function (year) {
@@ -210,13 +249,16 @@ plotHHI = function (year) {
   }
   assign("pergame",pergame, envir = .GlobalEnv)
   
-  AveHHI = data.frame("n_brokers" = numeric(3), "Average" = numeric(3), "SD" = numeric(3))
+  AveHHI = data.frame("year" = numeric(3), "n_brokers" = numeric(3),
+                      "Average" = numeric(3), "SD" = numeric(3))
   AveHHI$n_brokers = gameSizes
+  AveHHI$year = year
   for (game in gameSizes) {
     AveHHI$Average[AveHHI$n_brokers == game] = 
       mean(subset(pergame$HHI,(pergame$n_brokers == game) | (pergame$n_brokers == game - 1)))
     AveHHI$SD[AveHHI$n_brokers == game] = 
-      sd(pergame$HHI[(pergame$n_brokers == game) | (pergame$n_brokers == game - 1)])  
+      sd(pergame$HHI[(pergame$n_brokers == game) | (pergame$n_brokers == game - 1)])
+    save(AveHHI,file = paste("AveHHI",year,".RData",sep=""))
   }
   
   HHIplot = ggplot(pergame)
@@ -230,8 +272,6 @@ plotHHI = function (year) {
   ggsave(paste("HHI Index of all games,",year,"Finals.png"),
          path = plotPath, width = plotWidth, height = plotHeight)
   
-  
-  #print(HHIplot)
   HHIAvePlot = ggplot(AveHHI, aes(x = AveHHI$n_brokers))
   limits = aes(ymax = AveHHI$Average + AveHHI$SD, ymin = AveHHI$Average - AveHHI$SD)
   HHIAvePlot +
@@ -243,5 +283,74 @@ plotHHI = function (year) {
     theme(text = element_text(size=15),axis.text.x = element_text(angle = 0, hjust = 1))
   ggsave(paste("Average HHI Index of all games,",year,"Finals.png"),
          path = plotPath, width = plotWidth, height = plotHeight)
+}
+
+
+plotImbaVersusProfits = function(year){
+  #### Plots broker imbalance versus profits.
   
+  #### Data manipulation here. Cleaning, unneeded data, bad data, etc.
+  perbroker = perbroker[is.finite(perbroker$profits),] ## Remove all "-Inf" results. (Only one)
+  perbroker = perbroker[perbroker$broker_name != "default broker",] ## Remove default broker's data.
+  perbroker = perbroker[perbroker$profits != 0,] ## Remove passive brokers.
+  
+  #### Plotting here. Use ggplot or sth.
+  #plot(perbroker$i_rms_broker,perbroker$profits) ## For testing purposes
+  
+  xtitle = "RMS Imbalance (MWh)"
+  ytitle = "Profits"
+  plottitle=paste(ytitle,"versus",xtitle,"for",year,"Finals per broker")
+  
+  vsProfitsPlot = ggplot(perbroker) +
+    geom_point(aes(x = perbroker$i_rms_broker,y = perbroker$profits, colour = perbroker$broker_name), size = 2) +
+    scale_y_continuous(limits = c(-5e05,5e06)) +
+    scale_x_continuous(limits = c(0,3e04)) +
+    scale_colour_discrete(name  ="Broker ID") +
+    
+  labs(title = plottitle , x = xtitle, y = ytitle)
+  ggsave(paste(plottitle,".png",sep=''), vsProfitsPlot,
+         path = plotPath, width = plotWidth, height = plotHeight, scale = 1.5)
+  print(vsProfitsPlot)
+  
+  
+  rmsfit = lm(perbroker$profits ~ perbroker$i_rms_broker)
+  print(summary(rmsfit))
+  irfit = lm(perbroker$profits ~ perbroker$ir_broker)
+  print(summary(irfit))
+}
+
+plotAllHHI = function () {
+  #### Plots all HHI values for both Finals competition in one plot. Depends on plotHHI(year) and
+  # imbaDataPrep(year)
+
+  imbaDataPrep(2014)
+  plotHHI(2014)
+  imbaDataPrep(2015)
+  plotHHI(2015)
+  load("AveHHI2015.RData")
+  AveHHI2015 = AveHHI
+  load("AveHHI2014.Rdata")
+  AveHHI2014 = AveHHI
+  AllHHI = rbind(AveHHI2014,AveHHI2015)
+  AllHHI$year = as.factor(AllHHI$year)
+  #print(AllHHI)
+  
+  #### Plotting here:
+  
+  limits = aes(ymax = AllHHI$Average + AllHHI$SD, ymin = AllHHI$Average - AllHHI$SD)
+  xtitle = "Game Size"
+  ytitle = "Herfindahl-Hirschman Index"
+  plottitle="Average Herfindahl-Hirschman Index of all games"
+  
+  AllHHIPlot = ggplot(AllHHI, aes(x = AllHHI$n_brokers)) +
+    geom_errorbar(limits, width = 0.25, size = 0.8) +
+    geom_point(aes(y = AllHHI$Average, colour = AllHHI$year), size = 4) +
+    scale_y_continuous(limits = c(0,10000)) +
+    scale_x_discrete(breaks = 1:12) +
+    labs(title = plottitle, x = xtitle, y = ytitle) +
+    scale_colour_discrete(name  ="Year") +
+    theme(text = element_text(size=15),axis.text.x = element_text(angle = 0, hjust = 1))
+  ggsave(paste(plottitle,".png",sep=""),
+         path = plotPath, width = plotWidth, height = plotHeight, scale = 1.5)
+  print(AllHHIPlot)
 }
