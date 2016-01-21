@@ -16,18 +16,18 @@ if os.name == 'nt':
     wd = 'C:/Users/Mohammad/Documents/GitHub/powertac-tools/python-scripts/'
     os.chdir(wd)
     logtoolDir = r"C:/Users/Mohammad/Documents/GitHub/powertac-tools/logtool-examples"
-    logdir = 'E:/PowerTAC/Logs/2014/log/'
-    tournamentDir = 'E:/PowerTAC/Logs/2014/'
+    logdir = 'F:/PowerTAC/Logs/2015/log'
+    tournamentDir = 'F:/PowerTAC/Logs/2015'
 elif os.name == 'posix':
     '''ADD LINUX CODE'''
 
-logtoolClass = 'org.powertac.logtool.example.EnergyMixStats'
-outdir = os.path.join('C:/Users/Mohammad/Documents/Google Drive/PhD/PowerTAC Analysis/Plotting/output csvs/2014/')
-dataPrefix = 'data/energy-mix-stats-'  
-output = os.path.join(outdir, "energymixstats.csv")
+logtoolClass = 'org.powertac.logtool.example.ImbalanceStats'
+outdir = os.path.join('C:/Users/Mohammad/Documents/Google Drive/PhD/PowerTAC Analysis/Plotting/output csvs/2015/')
+dataPrefix = 'data/imbalance-stats-'  
+output = os.path.join(outdir, "imbalanceStats.csv")
 f = open(output,'w')
-f.write("game-id, slot, import, cost, cons, revenue, prod, cost, up-reg, cost, down-reg, revenue, imbalance, cost\n")
-options = '--with-gameid'
+#f.write("game-id, timeslot, broker, netDemand, marketQty, marketCost, imbalance, balancingCost, MktImbalanceCost\n")
+options = ''
 force = False
 logtype = 'sim'
 
@@ -41,6 +41,7 @@ def collectData (tournamentDir):
                                     options, logtype,
                                     force, logtoolDir = logtoolDir):
         # note that dataFile is a Path, not a string
+        #f.write(str(dataFile[0]) + ',')
         processFile(str(dataFile[1]))
         #print(str(dataFile))
 
@@ -52,6 +53,7 @@ def processFile (dataFile):
     '''
     data = open(dataFile, 'r')
     #data.readline() # skip first line. Remove if unneeded
+    #f.write(dataFile)
     for line in data.readlines():
         '''Define export style here:
             '''
@@ -72,7 +74,7 @@ def processFile (dataFile):
         row11tmp = floatMaybe(row[11])
         row12tmp = floatMaybe(row[12])
         row13tmp = floatMaybe(row[13])
-        
+      
         tmp = str("%s,\n" % (row[0],
                 row1tmp-360,row2tmp,row3tmp,row4tmp,row5tmp,row6tmp,row7tmp,
                 row8tmp,row9tmp,row10tmp,row11tmp,row12tmp,row13tmp))
