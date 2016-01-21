@@ -66,6 +66,7 @@ implements Analyzer
 
   // daily total imbalances, indexed by timeslot
   private int timeslot = 0;
+  private int tsIndex = 0; // actual timeslot index 
   private ArrayList<Double> dailyImbalance;
 
   // daily per-broker imbalance, cost
@@ -78,6 +79,8 @@ implements Analyzer
   private PrintWriter data = null;
   private String dataFilename = "data.txt";
   private boolean dataInit = false;
+
+  private Competition competition;
 
   /**
    * Constructor does nothing. Call setup() before reading a file to
@@ -220,7 +223,8 @@ implements Analyzer
     // iterate through the balancing and tariff transactions
     double totalImbalance = 0.0;
     double totalConsumption = 0.0;
-    String sep = "";
+    // start with game ID and timeslot
+    data.printf("%s,%d", competition.getName(), tsIndex);
     for (Broker broker : brokerRepo.findRetailBrokers()) {
       // capture summary data for printout
       double balancingQty = 0.0;
@@ -231,12 +235,12 @@ implements Analyzer
       if (null == bx) {
         // zero entries
         entries.add(new Pair<Double, Double>(0.0, 0.0));
-        data.print(sep + "0.0");
+        data.print("," + "0.0");
       }
       else {
         entries.add(new Pair<Double, Double>(bx.getKWh(), bx.getCharge()));
         balancingQty = bx.getKWh();
-        data.print(sep + balancingQty);
+        data.print("," + balancingQty);
         totalImbalance += bx.getKWh();
       }
       // tariff tx next
@@ -256,7 +260,6 @@ implements Analyzer
       //log.info("ts " + timeslot + ", broker " + broker.getUsername()
       //         + ": consumption = " + consumptionQty
       //         + ", balance qty = " + balancingQty);
-      sep = ",";
     }
     dailyImbalance.add(totalImbalance);
     data.println("," + totalImbalance + "," + totalConsumption);
@@ -281,11 +284,9 @@ implements Analyzer
   {
     if (dataInit || null == data)
       return;
-    //data.print("columns:");
-    String sep = "";
+    data.print("game-id,timeslot");
     for (Broker broker : brokerRepo.findRetailBrokers()) {
-      data.print(sep + broker.getUsername());
-      sep = ",";
+      data.print("," + broker.getUsername());
     }
     data.println(",imbalance,consumption");
     dataInit = true;
@@ -328,10 +329,14 @@ implements Analyzer
   // catch TimeslotUpdate events
   class TimeslotUpdateHandler implements NewObjectListener
   {
-
     @Override
     public void handleNewObject (Object thing)
     {
+      if (null == competition)
+        competition = Competition.currentCompetition();
+      TimeslotUpdate ts = (TimeslotUpdate) thing;
+      tsIndex = ts.getFirstEnabled()
+          - competition.getDeactivateTimeslotsAhead();
       summarizeTimeslot();
     }
   }
