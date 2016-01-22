@@ -190,7 +190,7 @@ implements Analyzer
     for (Broker broker: rings.keySet()) {
       BrokerData bt = rings.get(broker).get();
       double mktImbalance = 0.0;
-      if (bt.imbalance < 0.0)
+      //if (bt.imbalance < 0.0)
         mktImbalance = finalClearing * bt.imbalance;
       data.printf("%s,%d,%s,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f\n",
                   competition.getName(), timeslot,
