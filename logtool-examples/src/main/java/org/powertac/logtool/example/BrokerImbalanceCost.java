@@ -21,10 +21,7 @@ import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
-import java.util.SortedSet;
-
 import org.apache.log4j.Logger;
 import org.powertac.common.BalancingTransaction;
 import org.powertac.common.Broker;
@@ -33,14 +30,12 @@ import org.powertac.common.MarketTransaction;
 import org.powertac.common.Orderbook;
 import org.powertac.common.OrderbookOrder;
 import org.powertac.common.TariffTransaction;
-import org.powertac.common.Timeslot;
 import org.powertac.common.msg.TimeslotUpdate;
 import org.powertac.common.repo.BrokerRepo;
 import org.powertac.logtool.LogtoolContext;
 import org.powertac.logtool.common.DomainObjectReader;
 import org.powertac.logtool.common.NewObjectListener;
 import org.powertac.logtool.ifc.Analyzer;
-import org.powertac.util.Pair;
 
 /**
  * Computes total and per-broker net demand from tariff transactions, 
@@ -184,6 +179,36 @@ implements Analyzer
           // can be market order in the first position
           finalClearing = price / 1000.0;
         totalImbalance -= ask.getMWh() * 1000.0;
+      }
+    }
+    else if (totalImbalance > 0.0) {
+      // ignore case where total imbalance == 0.0
+      finalClearing = orderbook.getClearingPrice();
+      if (null == finalClearing) {
+        // no trades in this timeslot - use first bid instead
+        for (OrderbookOrder order: orderbook.getBids()) {
+          Double price = order.getLimitPrice();
+          if (null != price) {
+            // skip market orders
+            finalClearing = order.getLimitPrice();
+            break;
+          }
+        }
+      }
+      finalClearing /= 1000.0; // convert to per-kWh
+      Iterator<OrderbookOrder> bids = orderbook.getBids().iterator();
+      while (totalImbalance > 0.0) {
+        if (!bids.hasNext()) {
+          log.error(String.format("Ran out of bids at %.3f with %.3f kWh remaining",
+                                  finalClearing, totalImbalance));
+          break;
+        }
+        OrderbookOrder bid = bids.next();
+        Double price = bid.getLimitPrice();
+        if (null != price)
+          // can be market order in the first position
+          finalClearing = price / 1000.0;
+        totalImbalance -= bid.getMWh() * 1000.0;
       }
     }
     // iterate through the balancing and tariff transactions
