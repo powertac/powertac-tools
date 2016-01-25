@@ -8,7 +8,7 @@ of one line/timeslot formatted as
 Usage: PplusPminus.py tracelog datafile
 '''
 
-import string,re
+import string,re,sys
 
 # regular expressions to pick off timeslot, pplus/pminus, imbalance
 gameRe = re.compile('powertac-sim-(\d+).trace')
@@ -68,3 +68,9 @@ def floatMaybe (str):
     if str != '' :
         result = float(str)
     return result
+
+def main ():
+    extractData(sys.argv[1], sys.argv[2])
+
+if __name__ == '__main__':
+    main()
