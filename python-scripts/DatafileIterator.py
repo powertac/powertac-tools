@@ -43,11 +43,11 @@ def extractData (statefileName, extractorClass,
                         datafileName])
         args = args.replace("\\","/")
         if os.name == 'nt':
-            subprocess.check_output(['mvn', 'exec:exec',
+            print(subprocess.check_output(['mvn', 'exec:exec',
                                  '-Dexec.args =' + args],
                                  shell = True,
                                 env = processEnv,
-                                cwd = logtoolDir)
+                                cwd = logtoolDir))
         elif os.name == 'posix':
             subprocess.check_output(['mvn', 'exec:exec',
                                  '-Dexec.args =' + args],

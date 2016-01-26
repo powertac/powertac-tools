@@ -16,17 +16,17 @@ if os.name == 'nt':
     wd = 'C:/Users/Mohammad/Documents/GitHub/powertac-tools/python-scripts/'
     os.chdir(wd)
     logtoolDir = r"C:/Users/Mohammad/Documents/GitHub/powertac-tools/logtool-examples"
-    logdir = 'F:/PowerTAC/Logs/2015/log'
-    tournamentDir = 'F:/PowerTAC/Logs/2015'
+    logdir = 'E:/PowerTAC/Logs/2015/log'
+    tournamentDir = 'E:/PowerTAC/Logs/2015'
 elif os.name == 'posix':
     '''ADD LINUX CODE'''
 
-logtoolClass = 'org.powertac.logtool.example.ImbalanceStats'
+logtoolClass = 'org.powertac.logtool.example.BrokerImbalanceCost'
 outdir = os.path.join('C:/Users/Mohammad/Documents/Google Drive/PhD/PowerTAC Analysis/Plotting/output csvs/2015/')
-dataPrefix = 'data/imbalance-stats-'  
-output = os.path.join(outdir, "imbalanceStats.csv")
+dataPrefix = 'data/broker-imbalance-costs-'  
+output = os.path.join(outdir, "brokerImbalanceCosts.csv")
 f = open(output,'w')
-#f.write("game-id, timeslot, broker, netDemand, marketQty, marketCost, imbalance, balancingCost, MktImbalanceCost\n")
+f.write("game-id,timeslot,broker,netDemand,marketQty,marketCost,imbalance,balancingCost,MktImbalanceCost\n")
 options = ''
 force = False
 logtype = 'sim'
@@ -52,7 +52,7 @@ def processFile (dataFile):
     into the (already opened) CSV file.
     '''
     data = open(dataFile, 'r')
-    #data.readline() # skip first line. Remove if unneeded
+    data.readline() # skip first line. Remove if unneeded
     #f.write(dataFile)
     for line in data.readlines():
         '''Define export style here:
