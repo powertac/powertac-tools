@@ -8,15 +8,8 @@ import TournamentIterator as ti
 import string, re, os, subprocess
 from pathlib import Path
 
-#if os.name == 'nt':
-    #logtoolDir = r"C:/Users/Mohammad/Documents/Google Drive/PhD/Spyder workspace/production-consumption/powertac-tools/logtool-examples"
 processEnv = {'JAVA_HOME': os.environ.get('JAVA_HOME'),
               'Path' : os.environ.get('PATH') }
-               
-#elif os.name == 'posix':
-    #logtoolDir = "../logtool-examples"
-    #processEnv = {'JAVA_HOME': '/usr/lib/jvm/java-7-oracle'}
-
 
 def extractData (statefileName, extractorClass, 
                  dataPrefix, options, logtype, force, logtoolDir):
@@ -42,6 +35,7 @@ def extractData (statefileName, extractorClass,
                         ' ',
                         datafileName])
         args = args.replace("\\","/")
+        #print(args)
         if os.name == 'nt':
             subprocess.check_output(['mvn', 'exec:exec',
                                  '-Dexec.args =' + args],
@@ -57,11 +51,12 @@ def extractData (statefileName, extractorClass,
     return [gameId, str(dataPath)]
 
 def datafileIter (tournamentDir, extractorClass, dataPrefix,
-                  extractorOptions='', logtype='sim', force=False, logtoolDir = "../logtool-examples/"):
+                  extractorOptions='', logtype='sim',
+                  force=False, logtoolDir = "../logtool-examples/"):
     '''
     Iterates through game logs found in tournamentDir, extracting production
     and consumption data
     '''
     return (extractData(str(statelog), extractorClass, dataPrefix,
                         extractorOptions, logtype, force, logtoolDir)
-            for statelog in ti.stateLogIter(tournamentDir, logtype=logtype))
+            for statelog in ti.stateLogIter(tournamentDir, sessionType=logtype))
