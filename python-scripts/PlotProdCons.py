@@ -33,10 +33,10 @@ from scipy import stats
 import statistics as st
 import math, copy
 
-import GameData as gd
+import GameData as gc
 
 # fill in with an appropriate GameData instance
-gameData = gd.GameData()
+gameData = gc.GameData()
 
 def plotMeans (dataInterval='Daily',
                dataType='net-demand', showTitle=False):
@@ -178,11 +178,11 @@ def computeIntervalPeaks (interval, threshold=1.6, npeaks=3):
     gameData.ensureBootData()
     gameData.ensureGameData()
     bootScale = {}
-    bd = copy.deepcopy(gameData.bootDict)
-    gd = copy.deepcopy(gameData.gameDict)
-    for gameId in bd.keys():
-        bootMean = st.mean(bd[gameId])
-        gameMean = st.mean([x[1] for x in gd[gameId]])
+    bc = copy.deepcopy(gameData.bootDict)
+    gc = copy.deepcopy(gameData.gameDict)
+    for gameId in bc.keys():
+        bootMean = st.mean(bc[gameId])
+        gameMean = st.mean([x[1] for x in gc[gameId]])
         bootScale[gameId] = gameMean / bootMean
 
     # Get the production numbers
@@ -196,10 +196,54 @@ def computeIntervalPeaks (interval, threshold=1.6, npeaks=3):
     # peak events for each interval, as specified by the interval, threshold,
     # and npeaks values. Each peak is recorded as [ts, val] where val is the
     # amount by which the peak exceeds the threshold
-    
-    
+    results = {}
     for gameId in bootScale.keys():
-        print('game {}: bootScale  = {}'.format(gameId, bootScale[gameId]))
+        #print('game {}: bootScale  = {}'.format(gameId, bootScale[gameId]))
+        runningMean = 0.0
+        runningVar = 0.0
+        runningSigma = 0.0
+        runningCount = 0
+        scale = bootScale[gameId]
+        # process a single boot record by the method of Welford, as outlined
+        # in Knuth ACP, vol 2 Seminumerical Algorithms, Sec. 4.2.2 Eq. 15, 16.
+        for prod, cons in zip(bp[gameId], bc[gameId]):
+            net = prod + scale * cons
+            if runningCount == 0:
+                # first time through
+                runningMean = net
+                runningCount = 1
+            else:
+                lastM = runningMean
+                runningCount += 1
+                runningMean = lastM + (net - lastM) / runningCount
+                runningVar = runningVar + (net - lastM) * (net - runningMean)
+                runningSigma = math.sqrt(runningVar / (runningCount -1))
+        # process the corresponding game
+        nets = []
+        remaining = interval * 24
+        result = []
+        results[gameId] = result
+        for prod, cons in zip(gp[gameId], gc[gameId]):
+            net = prod[1] + cons[1]
+            nets.append([runningCount, net])
+            
+            lastM = runningMean
+            runningCount += 1
+            runningMean = lastM + (net - lastM) / runningCount
+            runningVar = runningVar + (net - lastM) * (net - runningMean)
+            runningSigma = math.sqrt(runningVar / (runningCount -1))
+            
+            remaining -= 1
+            if remaining == 0:
+                # time to assess
+                nets.sort(reverse=True, key=lambda x: x[1])
+                for i in range(npeaks):
+                    ev = nets[i]
+                    if ev[1] > runningMean + threshold * runningSigma:
+                        result.append(ev)
+                remaining = interval * 24
+                nets = []
+    return results                    
         
 
 def plotPeakHistogram (horizon):
