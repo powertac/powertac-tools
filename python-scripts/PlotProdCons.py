@@ -166,9 +166,9 @@ def computeIntervalPeaks (interval, threshold=1.6, npeaks=3):
     '''
     For a given interval in days, and a given threshold, peaks are detected
     according to the method specified in the 2016 spec. The multiplier is the
-    multiple of the stdev that defines a peak. Output is a list of pairs, each
-    containing the timeslot index and the amount by which the peak exceeded
-    the threshold in kWh.
+    multiple of the stdev that defines a peak. Output is a list of triples, each
+    containing the timeslot index (starting at the start of boot), the threshold,
+    and the amount by which the peak exceeded the threshold in kWh.
     '''
     # start by finding the mean consumption in the boot sim records, so we
     # can normalize the boot numbers. Necessary only for records prior to
@@ -237,10 +237,11 @@ def computeIntervalPeaks (interval, threshold=1.6, npeaks=3):
             if remaining == 0:
                 # time to assess
                 nets.sort(reverse=True, key=lambda x: x[1])
+                thr = runningMean + threshold * runningSigma
                 for i in range(npeaks):
                     ev = nets[i]
-                    if ev[1] > runningMean + threshold * runningSigma:
-                        result.append(ev)
+                    if ev[1] > thr:
+                        result.append([ev[0], thr, ev[1] - thr])
                 remaining = interval * 24
                 nets = []
     return results                    
