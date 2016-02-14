@@ -31,7 +31,7 @@ import matplotlib.lines as mline
 import pylab as pl
 from scipy import stats
 import statistics as st
-import math
+import math, copy
 
 import GameData as gd
 
@@ -161,6 +161,46 @@ def plotHistogram ():
                ['mean = {:.2f}'.format(mean),
                 'std dev = {:.2f}'.format(std)])
     plt.show()
+
+def computeIntervalPeaks (interval, threshold=1.6, npeaks=3):
+    '''
+    For a given interval in days, and a given threshold, peaks are detected
+    according to the method specified in the 2016 spec. The multiplier is the
+    multiple of the stdev that defines a peak. Output is a list of pairs, each
+    containing the timeslot index and the amount by which the peak exceeded
+    the threshold in kWh.
+    '''
+    # start by finding the mean consumption in the boot sim records, so we
+    # can normalize the boot numbers. Necessary only for records prior to
+    # 2016
+    if gameData.dataType != 'consumption':
+        gameData.reset('consumption')
+    gameData.ensureBootData()
+    gameData.ensureGameData()
+    bootScale = {}
+    bd = copy.deepcopy(gameData.bootDict)
+    gd = copy.deepcopy(gameData.gameDict)
+    for gameId in bd.keys():
+        bootMean = st.mean(bd[gameId])
+        gameMean = st.mean([x[1] for x in gd[gameId]])
+        bootScale[gameId] = gameMean / bootMean
+
+    # Get the production numbers
+    gameData.reset('production')
+    gameData.ensureBootData()
+    gameData.ensureGameData()
+    bp = gameData.bootDict
+    gp = gameData.gameDict
+
+    # For each game, walk the boot record, then walk the game and collect
+    # peak events for each interval, as specified by the interval, threshold,
+    # and npeaks values. Each peak is recorded as [ts, val] where val is the
+    # amount by which the peak exceeds the threshold
+    
+    
+    for gameId in bootScale.keys():
+        print('game {}: bootScale  = {}'.format(gameId, bootScale[gameId]))
+        
 
 def plotPeakHistogram (horizon):
     '''

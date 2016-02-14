@@ -14,22 +14,24 @@ class GameData:
     '''
 
     def __init__ (self, tournament='../../games/finals-201504',
-                  dataType='net-demand', logType='sim'):
+                  dataType='net-demand'):
         self.tournament = tournament
-        self.logType = logType
         self.reset(dataType)
 
     def reset (self, dataType):
         # data store
         self.dataType = dataType
         self.gameData = []
+        self.bootData = []
         self.gameDict = {}
+        self.bootDict = {}
         self.weekData = [[] for x in range(168)]
         self.weekdayData = [[] for x in range(24)]
         self.weekendData = [[] for x in range(24)]
         self.dayData = [[] for x in range(24)]
         self.dataMap = {'Weekly':self.weekData, 'Weekday':self.weekdayData,
-                        'Weekend':self.weekendData, 'Daily':self.dayData}
+                        'Weekend':self.weekendData, 'Daily':self.dayData,
+                        'Game':self.gameData}
 
     # data-type parameters
     logtoolClass = {'net-demand':
@@ -45,7 +47,7 @@ class GameData:
                   'production': 'data/prod-cons-',
                   'solar': 'data/solar-prod-'}
 
-    def collectData (self, force=False):
+    def collectData (self, logType='sim', force=False):
         '''
         Processes data from sim data files in the specified directory.
         Use force=True to force re-analysis of the data. Otherwise the logtool
@@ -54,24 +56,20 @@ class GameData:
         if actualPrefix == '':
             print('Bad dataType: {}'.format(self.dataType))
             return
-        if self.logType != 'sim':
+        if logType != 'sim':
             actualPrefix = '{}{}-'.format(self.dataPrefix[self.dataType],
-                                          self.logType)
+                                           logType)
         for [gameId, dataFile] in di.datafileIter(self.tournament,
                                                   self.logtoolClass[self.dataType],
                                                   actualPrefix,
-                                                  logtype=self.logType,
+                                                  logtype=logType,
                                                   force = force):
             # note that dataFile is a Path, not a string
-            if self.logType == 'sim':
+            if logType == 'sim':
                 self.processFile(gameId, str(dataFile))
             else:
                 self.processBootFile(gameId, str(dataFile))
 
-
-    def collectAllData (self, force=False):
-        collectData(self.tournament, self.dataType, force=force)
-        collectData(self.tournament, self.dataType, logtype='boot', force=force)
 
     def processFile (self, gameId, dataFile):
         '''
@@ -90,11 +88,7 @@ class GameData:
             how = (dow - 1) * 24 + hod # hour-of-week
             prod = self.floatMaybe(row[3])
             cons = self.floatMaybe(row[4])
-            net = -cons
-            if self.dataType == 'net-demand':
-                net -= prod
-            elif self.dataType == 'solar' or self.dataType == 'production':
-                net = prod
+            net = self.extractNet(prod, cons)
             gameSeries.append([how, net])
             self.weekData[how].append(net)
             self.dayData[hod].append(net)
@@ -112,20 +106,51 @@ class GameData:
         Note that the day-of-week numbers are in the range [1-7]. '''
         data = open(dataFile, 'r')
         gameSeries = []
+        self.bootData.append(gameSeries)
         self.bootDict[gameId] = gameSeries
         junk = data.readline() # skip first line
         for line in data.readlines():
             row = line.split(', ')
-            dow = int(row[1])
-            hod = int(row[2])
-            how = (dow - 1) * 24 + hod # hour-of-week
+            #dow = int(row[1])
+            #hod = int(row[2])
+            #how = (dow - 1) * 24 + hod # hour-of-week
             prod = self.floatMaybe(row[3])
             cons = self.floatMaybe(row[4])
             #if cons < 0.0: # omit rows where cons == 0
-            net = -prod
-            if self.dataType == 'net-demand':
-                net -= cons
-            gameSeries.append([how, net])
+            net = self.extractNet(prod, cons)
+            gameSeries.append(net)
+
+    def extractNet (self, prod, cons):
+        net = -cons
+        if self.dataType == 'net-demand':
+            net -= prod
+        elif self.dataType == 'solar' or self.dataType == 'production':
+            net = prod
+        return net
+
+
+    def dataArray (self, interval):
+        '''
+        Returns the array corresponding to the specified interval, which must be
+        one of 'Weekly', 'Weekday', 'Weekend', 'Daily', 'Game'. '''
+        self.ensureGameData()
+        return self.dataMap[interval]
+
+    def ensureGameData (self):
+        if len(self.gameData) == 0:
+            self.collectData()
+
+    def bootArray (self):
+        '''
+        Returns the array for the boot interval.
+        '''
+        self.ensureBootData()
+        return self.bootData
+
+    def ensureBootData (self):
+        if len(self.bootData) == 0:
+            self.collectData(logType='boot')
+
 
     def floatMaybe (self, str):
         '''returns the float representation of a string, unless the string is
@@ -137,11 +162,3 @@ class GameData:
         else:
             print('failed to float', str)
         return result
-
-    def dataArray (self, interval):
-        '''
-        Returns the array corresponding to the specified interval, which must be
-        one of 'Weekly', 'Weekday', 'Weekend', 'Daily'. '''
-        if len(self.gameData) == 0:
-            self.collectData()
-        return self.dataMap[interval]
