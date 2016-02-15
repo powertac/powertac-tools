@@ -5,10 +5,16 @@ of one line/timeslot formatted as
 
   gameId,timeslot,pPlus,pMinus,totalImbalance
 
-Usage: PplusPminus.py tracelog datafile
+Can be used in two modes. If the argument is a directory, it is taken as
+a collection of compressed game logs, from which trace logs will be extracted
+and analyzed. Otherwise, the argument is assumed to be a single trace log file.
+The output data will be stored in a directory ./data, each file named
+pplus-pminus-gameId.csv
 '''
 
-import string,re,sys
+import string,re,sys,os
+import TournamentIterator as ti
+import pathlib
 
 # regular expressions to pick off timeslot, pplus/pminus, imbalance
 gameRe = re.compile('powertac-sim-(\d+).trace')
@@ -16,10 +22,30 @@ tsRe = re.compile('Deactivated timeslot (\d+),')
 ppRe = re.compile('balancing prices: pPlus=(-?\d+\.\d+), pMinus=(-?\d+\.\d+)')
 imRe = re.compile('totalImbalance=(-?\d+\.\d+)')
 
-def extractData (traceIn, dataOut):
+def extractData (source):
+    '''
+    Extracts data from a single trace log, or from a directory of compressed
+    game logs using TournamentIterator
+    '''
+    if os.path.isdir(source):
+        # in this case, we use the iterator
+        for trace in ti.traceLogIter(source):
+            traceName = str(trace)
+            dataName = 'data/pp-data.csv'
+            m = gameRe.search(traceName)
+            if m:
+                dataName = 'data/pp-data-{}.csv'.format(m.group(1))
+            else:
+                print('Could not extract game ID from {}'.format(traceName))
+            extractFile(traceName, dataName)
+    else:
+        extractFile(source, source + '-pp.csv')
+
+def extractFile (traceIn, dataOut):
     '''
     Reads a trace log from traceIn, writes results to dataOut.
     '''
+        
     infile = open(traceIn, 'r')
     outfile = open(dataOut, 'w')
 
@@ -38,7 +64,7 @@ def extractData (traceIn, dataOut):
         m = tsRe.search(line)
         if m:
             if state != 'ts':
-                print('New timeslot in bad state', state)
+                print('New timeslot {} in bad state {}, {}'.format(m.group(1), state, traceIn))
             timeslot = int(m.group(1))
             state = 'bal'
             continue
@@ -70,7 +96,7 @@ def floatMaybe (str):
     return result
 
 def main ():
-    extractData(sys.argv[1], sys.argv[2])
+    extractData(sys.argv[1])
 
-if __name__ == '__main__':
-    main()
+#if __name__ == '__main__':
+#    main()
