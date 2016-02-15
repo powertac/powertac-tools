@@ -45,7 +45,9 @@ import org.powertac.logtool.ifc.Analyzer;
  * last timeslot.
  * 
  * Data format per timeslot, one line per broker:
- * gameid, timeslot, broker, netDemand, marketQty, marketCost, imbalance, balancingCost, MktImbalanceCost
+ * gameid, timeslot, broker, netDemand, marketQty, marketCost, imbalance, balancingCost, MktImbalanceCost, estCost
+ * 
+ * The estCost is the cost to clear a negative imbalance, given the n-1 orderbook.
  *
  * @author John Collins
  */
@@ -64,6 +66,8 @@ implements Analyzer
   private int tsOffset = 0;
   private Map<Broker, RingArray> rings;
   private Orderbook orderbook = null;
+  private Orderbook lastOrderbook = null;
+  private Orderbook pendingLastOrderbook = null;
   private double totalImbalance = 0.0;
 
   // data output file
@@ -215,21 +219,41 @@ implements Analyzer
     for (Broker broker: rings.keySet()) {
       BrokerData bt = rings.get(broker).get();
       double mktImbalance = 0.0;
-      //if (bt.imbalance < 0.0)
-        mktImbalance = finalClearing * bt.imbalance;
-      data.printf("%s,%d,%s,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f\n",
+      mktImbalance = finalClearing * bt.imbalance;
+      // estimate cost of clearing imbalance from lastOrderbook
+      double estPrice = 0.0;
+      if (null != lastOrderbook) {
+        double imb = bt.imbalance;
+        Iterator<OrderbookOrder> asks = orderbook.getAsks().iterator();
+        while (imb < 0.0) {
+          if (!asks.hasNext()) {
+            log.error(String.format("Ran out of asks at %.3f with %.3f kWh remaining",
+                                    estPrice, imb));
+            break;
+          }
+          OrderbookOrder ask = asks.next();
+          Double price = ask.getLimitPrice();
+          if (null != price)
+            // can be market order in the first position
+            estPrice = price / 1000.0;
+          imb -= ask.getMWh() * 1000.0;
+        }
+      }
+
+      data.printf("%s,%d,%s,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f\n",
                   competition.getName(), timeslot,
                   broker.getUsername(),
                   bt.netDemand,
                   bt.marketQty, bt.marketCost,
                   bt.imbalance, bt.balancingCost,
-                  mktImbalance);
+                  mktImbalance, estPrice * bt.imbalance);
     }
+    lastOrderbook = pendingLastOrderbook; // push the queue
   }
 
   private void initData (int tsIndex)
   {
-    data.println("game, timeslot, broker, netDemand, mktQty, mktCost, imbalance, imbalanceCost, mktImbCost");
+    data.println("game, timeslot, broker, netDemand, mktQty, mktCost, imbalance, imbalanceCost, mktImbCost, estCost");
     rings = new HashMap<>();
     for (Broker broker: brokerRepo.findRetailBrokers()) {
       RingArray ring =
@@ -336,6 +360,9 @@ implements Analyzer
       Orderbook book = (Orderbook) thing;
       if (book.getTimeslotIndex() == timeslot) {
         orderbook = book;
+      }
+      else if (book.getTimeslotIndex() == timeslot + 1) {
+        pendingLastOrderbook = book;
       }
     }
   }
