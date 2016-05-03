@@ -162,52 +162,59 @@ def plotHistogram ():
                 'std dev = {:.2f}'.format(std)])
     plt.show()
 
-def computeIntervalPeaks (interval, threshold=1.6, npeaks=3):
+def computeIntervalPeaks (interval, threshold=1.6, npeaks=3, impute=False):
     '''
     For a given interval in days, and a given threshold, peaks are detected
     according to the method specified in the 2016 spec. The multiplier is the
     multiple of the stdev that defines a peak. Output is a list of triples, each
     containing the timeslot index (starting at the start of boot), the threshold,
     and the amount by which the peak exceeded the threshold in kWh.
+    If impute is True, then boot data is not used, but rather imputed by
+    sampling the game data. This is needed to get good results from
+    pre-2016 games where demand elasticity was excessively high.
     '''
     # start by finding the mean consumption in the boot sim records, so we
     # can normalize the boot numbers. Necessary only for records prior to
     # 2016
-    if gameData.dataType != 'consumption':
-        gameData.reset('consumption')
-    gameData.ensureBootData()
+    if gameData.dataType != 'net-demand':
+        gameData.reset('net-demand')
+    if impute:
+        gameData.imputeBootData()
+    else:
+        gameData.ensureBootData()
     gameData.ensureGameData()
-    bootScale = {}
+    #bootScale = {}
     bc = copy.deepcopy(gameData.bootDict)
     gc = copy.deepcopy(gameData.gameDict)
-    for gameId in bc.keys():
-        bootMean = st.mean(bc[gameId])
-        gameMean = st.mean([x[1] for x in gc[gameId]])
-        bootScale[gameId] = gameMean / bootMean
+    print('{} games, {} boots'.format(len(gc), len(bc)))
+    #for gameId in bc.keys():
+    #    bootMean = st.mean(bc[gameId])
+    #    gameMean = st.mean([x[1] for x in gc[gameId]])
+    #    bootScale[gameId] = gameMean / bootMean
 
     # Get the production numbers
-    gameData.reset('production')
-    gameData.ensureBootData()
-    gameData.ensureGameData()
-    bp = gameData.bootDict
-    gp = gameData.gameDict
+    #gameData.reset('production')
+    #gameData.ensureBootData()
+    #gameData.ensureGameData()
+    #bp = gameData.bootDict
+    #gp = gameData.gameDict
 
     # For each game, walk the boot record, then walk the game and collect
     # peak events for each interval, as specified by the interval, threshold,
     # and npeaks values. Each peak is recorded as [ts, val] where val is the
     # amount by which the peak exceeds the threshold
     results = {}
-    for gameId in bootScale.keys():
-        #print('game {}: bootScale  = {}'.format(gameId, bootScale[gameId]))
+    for gameId in gc.keys():
+        print('game {}'.format(gameId))
         runningMean = 0.0
         runningVar = 0.0
         runningSigma = 0.0
         runningCount = 0
-        scale = bootScale[gameId]
+        scale = 1.0
         # process a single boot record by the method of Welford, as outlined
         # in Knuth ACP, vol 2 Seminumerical Algorithms, Sec. 4.2.2 Eq. 15, 16.
-        for prod, cons in zip(bp[gameId], bc[gameId]):
-            net = prod + scale * cons
+        for net in bc[gameId]:
+            #net = prod + scale * cons
             if runningCount == 0:
                 # first time through
                 runningMean = net
@@ -223,14 +230,14 @@ def computeIntervalPeaks (interval, threshold=1.6, npeaks=3):
         remaining = interval * 24
         result = []
         results[gameId] = result
-        for prod, cons in zip(gp[gameId], gc[gameId]):
-            net = prod[1] + cons[1]
-            nets.append([runningCount, net])
+        for net in gc[gameId]:
+            #net = prod[1] + cons[1]
+            nets.append([runningCount, net[1]])
             
             lastM = runningMean
             runningCount += 1
-            runningMean = lastM + (net - lastM) / runningCount
-            runningVar = runningVar + (net - lastM) * (net - runningMean)
+            runningMean = lastM + (net[1] - lastM) / runningCount
+            runningVar = runningVar + (net[1] - lastM) * (net[1] - runningMean)
             runningSigma = math.sqrt(runningVar / (runningCount -1))
             
             remaining -= 1
@@ -245,7 +252,7 @@ def computeIntervalPeaks (interval, threshold=1.6, npeaks=3):
                 remaining = interval * 24
                 nets = []
     return results                    
-        
+
 
 def plotPeakHistogram (horizon):
     '''
