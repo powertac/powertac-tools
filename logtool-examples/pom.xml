@@ -8,12 +8,12 @@
   <parent>
     <groupId>org.powertac</groupId>
     <artifactId>server-master</artifactId>
-    <version>1.3.2-SNAPSHOT</version>
+    <version>1.4.0-SNAPSHOT</version>
     <relativePath />
   </parent>
 
   <artifactId>logtool-examples</artifactId>
-  <version>1.3.2-shapshot</version>
+  <version>1.4.0-shapshot</version>
   <description>Tools for analyzing state logs produced by the Power TAC
   simulation server</description>
   <packaging>jar</packaging>
