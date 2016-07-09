@@ -26,21 +26,14 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.joda.time.DateTimeFieldType;
-import org.joda.time.Instant;
 import org.powertac.common.Broker;
 import org.powertac.common.repo.BootstrapDataRepo;
 import org.powertac.common.repo.BrokerRepo;
-import org.powertac.common.repo.TimeslotRepo;
 import org.powertac.common.CapacityTransaction;
 import org.powertac.common.Competition;
 import org.powertac.common.TariffTransaction;
-import org.powertac.common.TimeService;
-import org.powertac.common.TariffTransaction.Type;
 import org.powertac.common.msg.CustomerBootstrapData;
 import org.powertac.common.msg.TimeslotUpdate;
 import org.powertac.logtool.LogtoolContext;
@@ -53,10 +46,16 @@ import org.powertac.logtool.ifc.Analyzer;
  * Gathers customer production and consumption data,
  * along with capacity transactions. Computes difference,
  * by broker, between recorded CapacityTransactions and
- * correct CapacityTransactions.
+ * re-computed CapacityTransactions.
  * 
  * Output is one line/broker, formatted as
- *   broker-name, recorded capacity charges, correct capacity charges
+ *   gameId, broker-name, capacity charge variance
+ * where the variance is the amount that should be added to the broker's score.
+ * 
+ * To run with maven, use
+ *   mvn exec:exec -Dexec.args="org.powertac.logtool.example.CapacityValidator dir data"
+ * where dir is a directory containing the boot record and state log
+ * for a single game, and data is the name of the output data file
  *
  * @author John Collins
  */
@@ -67,20 +66,20 @@ implements Analyzer
   static Logger log = LogManager.getLogger(CapacityValidator.class.getSimpleName());
 
   private DomainObjectReader dor;
-  private TimeService timeService;
+  //private TimeService timeService;
   private BootstrapDataRepo bootstrapRepo;
-  private TimeslotRepo timeslotRepo;
+  //private TimeslotRepo timeslotRepo;
   private BrokerRepo brokerRepo;
   private String bootFilename;
-  private Competition competition;
+  //private Competition competition;
 
   // option flag
   private String gameId = null;
 
   // data collectors for current timeslot
   private int timeslot = 360;
-  private double used = 0.0;
-  private double produced = 0.0;
+  //private double used = 0.0;
+  //private double produced = 0.0;
   private HashMap<Broker, Double> brokerUsed;
   private HashMap<Broker, Double> brokerProduced;
   private HashMap<Broker, List<CapacityTransaction>> brokerCapacityTx;
@@ -90,7 +89,7 @@ implements Analyzer
   //@ConfigurableValue(valueType = "Boolean",
   //        publish = true,
   //        description = "If true, DU should assess transmission capacity fees")
-  private boolean useCapacityFee = false;
+  //private boolean useCapacityFee = false;
 
   //@ConfigurableValue(valueType = "Integer",
   //        publish = true,
@@ -115,7 +114,7 @@ implements Analyzer
   private double runningVar = 0.0;
   private double runningSigma = 0.0;
   private int runningCount = 0;
-  private int lastAssessmentTimeslot = 0;
+  //private int lastAssessmentTimeslot = 0;
 
 
   // data output file
@@ -272,6 +271,11 @@ implements Analyzer
   @Override
   public void report ()
   {
+    for (Broker broker: brokerRepo.findRetailBrokers()) {
+      data.println(String.format("%s, %s, %.4f",
+                                 gameId, broker.getUsername(),
+                                 brokerVariance.get(broker)));
+    }
     data.close();
   }
 
@@ -285,7 +289,7 @@ implements Analyzer
     List<Broker> brokerList = brokerRepo.findRetailBrokers();
     if (!dataInit) {
       // first time through print header, set up data collectors
-      data.println("game, timeslot, broker, variance");
+      //data.println("game, broker, variance");
       gameId = Competition.currentCompetition().getName();
       brokerUsed = new HashMap<>();
       brokerProduced = new HashMap<>();
@@ -306,7 +310,7 @@ implements Analyzer
     // adapted from DistributionUtility.assessCapacityFees()
     if (null == timeslotOffset) {
       timeslotOffset = timeslot;
-      lastAssessmentTimeslot = timeslot;
+      //lastAssessmentTimeslot = timeslot;
       log.info("Start timeslot {}, timeslotOffset = {}",
                timeslot, timeslotOffset);
     }
@@ -380,18 +384,20 @@ implements Analyzer
       for (Broker broker: brokerList) {
         double variance =
             computedCharge.get(broker) - recordedCharge.get(broker);
-        data.println(String.format("%s, %d, %s, %.4f",
-                                   gameId, timeslot,
-                                   broker.getUsername(),
-                                   variance));
-        data.flush();
+        log.info("ts {} variance for broker {} = {}",
+                 timeslot, broker.getUsername(), variance);
+        //data.println(String.format("%s, %d, %s, %.4f",
+        //                           gameId, timeslot,
+        //                           broker.getUsername(),
+        //                           variance));
+        //data.flush();
         brokerVariance.put(broker, variance + brokerVariance.get(broker));
         brokerCapacityTx.get(broker).clear();
         brokerNetDemand.put(broker, new double[assessmentInterval]);
       }
 
       // record time of last assessment
-      lastAssessmentTimeslot = timeslot;
+      //lastAssessmentTimeslot = timeslot;
     }
     // keep track of demand peaks for next assessment
     recordNetDemand(timeslot, brokerList);
@@ -401,8 +407,8 @@ implements Analyzer
       brokerProduced.put(broker, 0.0);
       brokerUsed.put(broker, 0.0);
     }
-    produced = 0.0;
-    used = 0.0;
+    //produced = 0.0;
+    //used = 0.0;
   }
 
   // Records hourly net demand, updates running stats
@@ -423,6 +429,10 @@ implements Analyzer
           -(brokerProduced.get(broker) + brokerUsed.get(broker));
       brokerDemand[index] = netConsumption;
       totalConsumption += netConsumption;
+    }
+    if (0.0 == totalConsumption) {
+      // skip this one
+      return;
     }
     log.info("Total net consumption for ts {} = {}",
              timeslot, totalConsumption);
@@ -496,12 +506,12 @@ implements Analyzer
       if (tx.getTxType() == TariffTransaction.Type.CONSUME) {
         brokerUsed.put(broker,
                        brokerUsed.get(broker) + tx.getKWh());
-        used += tx.getKWh();
+        //used += tx.getKWh();
       }
       else if (tx.getTxType() == TariffTransaction.Type.PRODUCE) {
         brokerProduced.put(broker,
                            brokerProduced.get(broker) + tx.getKWh());
-        produced += tx.getKWh();
+        //produced += tx.getKWh();
       }
     }
   }
