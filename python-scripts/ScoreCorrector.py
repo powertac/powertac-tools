@@ -46,6 +46,8 @@ class ScoreCorrector:
         producing an output file containing lines as game, broker, variance.
         Returns the path to the data file. '''
         datafileName = self.prefix+game+'.data'
+        if os.path.exists(os.path.join(self.logtoolDir, self.data, datafileName)):
+            return datafileName
         args = ''.join([self.logtoolClass, ' ',
                         os.path.join(self.gameDir, self.tournament, game), ' ',
                         os.path.join(self.data, datafileName)])
@@ -58,10 +60,12 @@ class ScoreCorrector:
     def extractData (self, datafileName):
         datafile = open(os.path.join(self.logtoolDir, self.data, datafileName), 'r')
         # each line is game, broker, correction
-        for line in datafile:
+        content = [line.rstrip() for line in datafile.readlines()]
+        gamesize = len(content)
+        for line in content:
             tokens = line.split(', ')
             game = tokens[0]
-            broker = tokens[1]
+            broker = tokens[1] + '-' + str(len(content) - 1)
             correction = self.floatMaybe(tokens[2])
             if abs(correction) > 0.1:
                 print('game {}, broker {}, correction = {}'.format(game, broker, correction))
@@ -85,5 +89,5 @@ class ScoreCorrector:
         for datafileName in self.dataIterator():
             self.extractData(datafileName)
         print("results:")
-        for [broker, correction] in self.brokerData.items():
-            print(broker, correction)
+        for broker in sorted(self.brokerData):
+            print(broker, self.brokerData[broker])
