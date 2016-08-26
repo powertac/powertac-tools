@@ -6,10 +6,6 @@ import string,os,subprocess
 import TournamentGameIterator as tgi
 
 class ScoreCorrector:
-    '''
-    dataType is one of 'net-demand', 'consumption', 'solar'
-    logType is one of 'sim', 'boot'
-    '''
 
     def __init__ (self,
                   url='http://ts.powertac.org/log_archive/finals_2016_06',
