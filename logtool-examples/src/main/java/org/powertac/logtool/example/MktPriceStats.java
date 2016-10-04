@@ -164,7 +164,7 @@ implements Analyzer
         return; // nothing to do yet
       }
       ClearedTrade ct = (ClearedTrade) thing;
-      int target = ct.getTimeslot().getSerialNumber();
+      int target = ct.getTimeslotIndex();
       int now = timeslotRepo.getTimeslotIndex(timeService.getCurrentTime());
       int offset = target - now - indexOffset;
       if (offset < 0 || offset > 23) {

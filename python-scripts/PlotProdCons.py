@@ -30,136 +30,44 @@ import matplotlib.pyplot as plt
 import matplotlib.lines as mline
 import pylab as pl
 from scipy import stats
-from pathlib import Path
-import DatafileIterator as di
 import statistics as st
-import math
+import math, copy
 
-logtoolClass = 'org.powertac.logtool.example.ProductionConsumption'
-dataPrefix = 'data/prod-cons-'
+import GameData as gc
 
-#logtoolClass = 'org.powertac.logtool.example.SolarProduction'
-#dataPrefix = 'data/solar-prod-'
+# fill in with an appropriate GameData instance
+gameData = gc.GameData()
 
-def collectAllData (tournament, force=False):
-    collectData(tournament, force=force)
-    collectData(tournament, logtype='boot', force=force)
-
-def collectData (tournament, logtype='sim', force=False):
-    '''
-    Processes data from sim data files in the specified directory.
-    Use force=True to force re-analysis of the data. Otherwise the logtool
-    code won't be run if its output is already in place.
-    '''
-    actualPrefix = dataPrefix
-    if logtype != 'sim':
-        actualPrefix = dataPrefix + '{}-'.format(logtype)
-    for [gameId, dataFile] in di.datafileIter(tournament,
-                                              logtoolClass,
-                                              actualPrefix,
-                                              logtype=logtype,
-                                              force = force):
-        # note that dataFile is a Path, not a string
-        if logtype == 'sim':
-            processFile(gameId, str(dataFile))
-        else:
-            processBootFile(gameId, str(dataFile))
-
-gameData = []
-gameDict = {}
-bootDict = {}
-bootStats = {}
-weekData = [[] for x in range(168)]
-weekdayData = [[] for x in range(24)]
-weekendData = [[] for x in range(24)]
-dayData = [[] for x in range(24)]
-dataMap = {'Weekly':weekData, 'Weekday':weekdayData, 'Weekend':weekendData,
-           'Daily':dayData}
-
-def processFile (gameId, dataFile):
-    '''
-    Collects data from a data file into a global 168-column array,
-    one column per hour-of-week.
-    Note that the day-of-week numbers are in the range [1-7].
-    '''
-    data = open(dataFile, 'r')
-    gameSeries = []
-    gameData.append(gameSeries)
-    gameDict[gameId] = gameSeries
-    junk = data.readline() # skip first line
-    for line in data.readlines():
-        row = line.split(', ')
-        dow = int(row[1])
-        hod = int(row[2])
-        how = (dow - 1) * 24 + hod # hour-of-week
-        prod = floatMaybe(row[3])
-        cons = floatMaybe(row[4])
-        #if cons < 0.0: # omit rows where cons == 0
-        net = -prod - cons
-        gameSeries.append([how, net])
-        weekData[how].append(net)
-        dayData[hod].append(net)
-        if dow <= 5:
-            #weekday
-            weekdayData[hod].append(net)
-        else:
-            #weekend
-            weekendData[hod].append(net)
-
-def processBootFile (gameId, dataFile):
-    '''
-    Collects data from a bootstrap data file into a global 168-column array,
-    one column per hour-of-week.
-    Note that the day-of-week numbers are in the range [1-7].
-    '''
-    data = open(dataFile, 'r')
-    gameSeries = []
-    bootDict[gameId] = gameSeries
-    junk = data.readline() # skip first line
-    for line in data.readlines():
-        row = line.split(', ')
-        dow = int(row[1])
-        hod = int(row[2])
-        how = (dow - 1) * 24 + hod # hour-of-week
-        prod = floatMaybe(row[3])
-        cons = floatMaybe(row[4])
-        #if cons < 0.0: # omit rows where cons == 0
-        net = -prod - cons
-        gameSeries.append([how, net])
-
-def floatMaybe (str):
-    '''returns the float representation of a string, unless the string is
-     empty, in which case return 0. Should have been a lambda, but not
-     with Python.'''
-    result = 0.0
-    if str != '' :
-        result = float(str)
-    else:
-        print('failed to float', str)
-    return result
-
-def plotMeans (data):
+def plotMeans (dataInterval='Daily',
+               dataType='net-demand', showTitle=False):
     '''
     Reduces the raw data into means and 1-sigma error bars, plots result
     '''
+    if gameData.dataType != dataType:
+        gameData.reset(dataType)
+    data = gameData.dataArray(dataInterval)
     d = [np.array(c) for c in data]
     print('Shape:', np.shape(d))
     means = [c.mean() for c in d]
     stds = [c.std() for c in d]
     x = range(np.shape(d)[0])
-    plt.title('Mean consumption, 1-sigma error bars')
+    if showTitle:
+        plt.title('Mean {} {}, 1-sigma error bars'.format(dataInterval, dataType))
     plt.errorbar(x, means, yerr=stds)
     plt.xlabel('hour')
     plt.ylabel('Net demand (MW)')
     plt.show()
 
-def plotContours (dataName, contours):
+def plotContours (contours, dataInterval='Daily',
+                  dataType='net-demand', showTitle=False):
     '''
     Extracts data points from the raw data at the given contour intervals.
     The contours arg is a list of probabilities 0.0 < contour <= 1.0.
     For example, contours=[0.05, 0.5, 0.95] plots the 5%, 50%, and 95% contours.
     '''
-    data = dataMap[dataName]
+    if gameData.dataType != dataType:
+        gameData.reset(dataType)
+    data = gameData.dataArray(dataInterval)
     rows = []
     for c in data:
         c.sort()
@@ -179,7 +87,8 @@ def plotContours (dataName, contours):
                 row.append(0.0)
     x = range(len(data))
     plt.grid(True)
-    plt.title('{} net demand contours'.format(dataName))
+    if showTitle:
+        plt.title('{} {} contours'.format(dataInterval, gameData.dataType))
     plt.ylim((0, 110))
     for y,lbl in zip(rows, contours):
         plt.plot(x, y, label = '{0}%'.format(lbl * 100))
@@ -252,6 +161,98 @@ def plotHistogram ():
                ['mean = {:.2f}'.format(mean),
                 'std dev = {:.2f}'.format(std)])
     plt.show()
+
+def computeIntervalPeaks (interval, threshold=1.6, npeaks=3, impute=False):
+    '''
+    For a given interval in days, and a given threshold, peaks are detected
+    according to the method specified in the 2016 spec. The multiplier is the
+    multiple of the stdev that defines a peak. Output is a list of triples, each
+    containing the timeslot index (starting at the start of boot), the threshold,
+    and the amount by which the peak exceeded the threshold in kWh.
+    If impute is True, then boot data is not used, but rather imputed by
+    sampling the game data. This is needed to get good results from
+    pre-2016 games where demand elasticity was excessively high.
+    '''
+    # start by finding the mean consumption in the boot sim records, so we
+    # can normalize the boot numbers. Necessary only for records prior to
+    # 2016
+    if gameData.dataType != 'net-demand':
+        gameData.reset('net-demand')
+    if impute:
+        gameData.imputeBootData()
+    else:
+        gameData.ensureBootData()
+    gameData.ensureGameData()
+    #bootScale = {}
+    bc = copy.deepcopy(gameData.bootDict)
+    gc = copy.deepcopy(gameData.gameDict)
+    print('{} games, {} boots'.format(len(gc), len(bc)))
+    #for gameId in bc.keys():
+    #    bootMean = st.mean(bc[gameId])
+    #    gameMean = st.mean([x[1] for x in gc[gameId]])
+    #    bootScale[gameId] = gameMean / bootMean
+
+    # Get the production numbers
+    #gameData.reset('production')
+    #gameData.ensureBootData()
+    #gameData.ensureGameData()
+    #bp = gameData.bootDict
+    #gp = gameData.gameDict
+
+    # For each game, walk the boot record, then walk the game and collect
+    # peak events for each interval, as specified by the interval, threshold,
+    # and npeaks values. Each peak is recorded as [ts, val] where val is the
+    # amount by which the peak exceeds the threshold
+    results = {}
+    for gameId in gc.keys():
+        print('game {}'.format(gameId))
+        runningMean = 0.0
+        runningVar = 0.0
+        runningSigma = 0.0
+        runningCount = 0
+        scale = 1.0
+        # process a single boot record by the method of Welford, as outlined
+        # in Knuth ACP, vol 2 Seminumerical Algorithms, Sec. 4.2.2 Eq. 15, 16.
+        for net in bc[gameId]:
+            #net = prod + scale * cons
+            if runningCount == 0:
+                # first time through
+                runningMean = net
+                runningCount = 1
+            else:
+                lastM = runningMean
+                runningCount += 1
+                runningMean = lastM + (net - lastM) / runningCount
+                runningVar = runningVar + (net - lastM) * (net - runningMean)
+                runningSigma = math.sqrt(runningVar / (runningCount -1))
+        # process the corresponding game
+        nets = []
+        remaining = interval * 24
+        result = []
+        results[gameId] = result
+        for net in gc[gameId]:
+            #net = prod[1] + cons[1]
+            nets.append([runningCount, net[1]])
+            
+            lastM = runningMean
+            runningCount += 1
+            runningMean = lastM + (net[1] - lastM) / runningCount
+            runningVar = runningVar + (net[1] - lastM) * (net[1] - runningMean)
+            runningSigma = math.sqrt(runningVar / (runningCount -1))
+            
+            remaining -= 1
+            if remaining == 0:
+                # time to assess
+                nets.sort(reverse=True, key=lambda x: x[1])
+                thr = runningMean + threshold * runningSigma
+                for i in range(npeaks):
+                    ev = nets[i]
+                    if ev[1] > thr:
+                        result.append([ev[0], thr, ev[1] - thr])
+                remaining = interval * 24
+                nets = []
+    return results                    
+
 
 def plotPeakHistogram (horizon):
     '''
