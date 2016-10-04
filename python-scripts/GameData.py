@@ -151,6 +151,19 @@ class GameData:
         if len(self.bootData) == 0:
             self.collectData(logType='boot')
 
+    def imputeBootData (self):
+        '''
+        Generates "fake" boot data by sampling the game data at 
+        '''
+        self.ensureGameData()
+        self.bootData = []
+        interval = 5 # must be odd number
+        for gameId in self.gameDict.keys():
+            data = []
+            gd = self.gameDict[gameId]
+            self.bootDict[gameId] = data
+            for i in range(int(len(gd) / interval)):
+                data.append(gd[i][1])
 
     def floatMaybe (self, str):
         '''returns the float representation of a string, unless the string is
