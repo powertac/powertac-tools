@@ -19,6 +19,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.net.URL;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -26,6 +27,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.powertac.common.Broker;
@@ -70,7 +72,7 @@ implements Analyzer
   private BootstrapDataRepo bootstrapRepo;
   //private TimeslotRepo timeslotRepo;
   private BrokerRepo brokerRepo;
-  private String bootFilename;
+  private URL bootLoc;
   //private Competition competition;
 
   // option flag
@@ -158,7 +160,7 @@ implements Analyzer
         Files.newDirectoryStream(dir, "*boot.xml")) {
       for (Path entry: stream)
         bootPath = entry;
-      bootFilename = bootPath.toString();
+      bootLoc = new URL("file://" + bootPath.toString());
     }
     catch (IOException e) {
       System.out.println("Could not find boot record");
@@ -192,7 +194,7 @@ implements Analyzer
   {
     // Read the boot record
     bootstrapRepo = (BootstrapDataRepo)getBean("bootstrapRepo");
-    bootstrapRepo.readBootRecord(bootFilename);
+    bootstrapRepo.readBootRecord(bootLoc);
     Competition bootCompetition =
         bootstrapRepo.getBootstrapCompetition();
     timeslot = bootCompetition.getBootstrapTimeslotCount() +
