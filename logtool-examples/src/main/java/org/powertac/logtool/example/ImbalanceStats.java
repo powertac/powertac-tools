@@ -21,7 +21,9 @@ import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+
 import org.powertac.common.BalancingTransaction;
 import org.powertac.common.Broker;
 import org.powertac.common.Competition;
@@ -54,7 +56,7 @@ public class ImbalanceStats
 extends LogtoolContext
 implements Analyzer
 {
-  static private Logger log = Logger.getLogger(ImbalanceStats.class.getName());
+  static private Logger log = LogManager.getLogger(ImbalanceStats.class.getName());
 
   private DomainObjectReader dor;
 

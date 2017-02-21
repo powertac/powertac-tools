@@ -21,7 +21,9 @@ import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.HashSet;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+
 import org.joda.time.DateTimeFieldType;
 import org.joda.time.Instant;
 import org.powertac.common.CustomerInfo;
@@ -47,7 +49,7 @@ public class SolarProduction
 extends LogtoolContext
 implements Analyzer
 {
-  static private Logger log = Logger.getLogger(SolarProduction.class.getName());
+  static private Logger log = LogManager.getLogger(SolarProduction.class.getName());
 
   private DomainObjectReader dor;
 
