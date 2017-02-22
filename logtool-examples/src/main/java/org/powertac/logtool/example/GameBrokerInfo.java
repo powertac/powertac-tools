@@ -20,7 +20,6 @@ import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 import java.util.HashMap;
 
-import org.apache.log4j.Logger;
 import org.joda.time.DateTimeFieldType;
 import org.joda.time.Instant;
 import org.powertac.common.Broker;

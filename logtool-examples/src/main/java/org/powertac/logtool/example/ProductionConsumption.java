@@ -20,7 +20,9 @@ import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 import java.util.HashMap;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+
 import org.joda.time.DateTimeFieldType;
 import org.joda.time.Instant;
 import org.powertac.common.Broker;
@@ -49,7 +51,7 @@ public class ProductionConsumption
 extends LogtoolContext
 implements Analyzer
 {
-  static private Logger log = Logger.getLogger(ProductionConsumption.class.getName());
+  static private Logger log = LogManager.getLogger(ProductionConsumption.class.getName());
 
   private DomainObjectReader dor;
 

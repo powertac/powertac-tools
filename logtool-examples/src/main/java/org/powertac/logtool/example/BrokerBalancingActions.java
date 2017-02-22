@@ -31,7 +31,9 @@ import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+
 import org.powertac.balancemkt.ChargeInfo;
 import org.powertac.balancemkt.SettlementContext;
 import org.powertac.balancemkt.StaticSettlementProcessor;
@@ -80,7 +82,7 @@ public class BrokerBalancingActions
 extends LogtoolContext
 implements Analyzer
 {
-  static private Logger log = Logger.getLogger(BrokerBalancingActions.class.getName());
+  static private Logger log = LogManager.getLogger(BrokerBalancingActions.class.getName());
 
   private DomainObjectReader dor;
   private BrokerRepo brokerRepo;

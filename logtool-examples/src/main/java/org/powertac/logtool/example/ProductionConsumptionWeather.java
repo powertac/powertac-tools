@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015 by John E. Collins
+ * Copyright (c) 2016 by John E. Collins
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,20 +18,16 @@ package org.powertac.logtool.example;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;
-import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.HashMap;
 
-import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
-
+import org.apache.logging.log4j.Logger;
 import org.joda.time.DateTimeFieldType;
 import org.joda.time.Instant;
-import org.powertac.common.CustomerInfo;
 import org.powertac.common.TariffTransaction;
-import org.powertac.common.enumerations.PowerType;
+import org.powertac.common.WeatherReport;
 import org.powertac.common.msg.TimeslotUpdate;
-import org.powertac.common.repo.CustomerRepo;
-import org.powertac.common.spring.SpringApplicationContext;
+//import org.powertac.common.spring.SpringApplicationContext;
 import org.powertac.logtool.LogtoolContext;
 import org.powertac.logtool.common.DomainObjectReader;
 import org.powertac.logtool.common.NewObjectListener;
@@ -40,26 +36,30 @@ import org.powertac.logtool.ifc.Analyzer;
 /**
  * Example analysis class.
  * Gathers customer production and consumption data
- * For each timeslot, report includes
- *   timeslot index, day of week, hour, total production, total consumption
- * 
+ * By default, output is one row per timeslot:
+ *   timeslot index, day of week, hour of day,
+ *   total production, total consumption,
+ *   temperature, wind speed, sky cover
+ *
  * @author John Collins
  */
-public class SolarProduction
+public class ProductionConsumptionWeather
 extends LogtoolContext
 implements Analyzer
 {
-  static private Logger log = LogManager.getLogger(SolarProduction.class.getName());
+  static private Logger log = LogManager.getLogger(ProductionConsumptionWeather.class.getName());
 
   private DomainObjectReader dor;
 
-  // access to customer info
-  private CustomerRepo customerRepo;
-  private HashSet<CustomerInfo> solarCustomers;
+  // option flag
+  //private boolean byBroker = false;
+  //private String gameId = null;
 
   // data collectors for current timeslot
   private int timeslot;
+  private double used = 0.0;
   private double produced = 0.0;
+  private HashMap<Integer, WeatherReport> weatherReports;
 
   // data output file
   private PrintWriter data = null;
@@ -70,7 +70,7 @@ implements Analyzer
    * Constructor does nothing. Call setup() before reading a file to
    * get this to work.
    */
-  public SolarProduction ()
+  public ProductionConsumptionWeather ()
   {
     super();
   }
@@ -81,14 +81,17 @@ implements Analyzer
    */
   public static void main (String[] args)
   {
-    new SolarProduction().cli(args);
+    System.out.println(String.format("Args = {}", (Object[])args));
+    new ProductionConsumptionWeather().cli(args);
   }
   
   /**
-   * Takes two args, input filename and output filename
+   * Takes at least two args, input filename and output filename.
+   * The --by-broker option changes the output format.
    */
   private void cli (String[] args)
   {
+    System.out.println("ProductionConsumptionWeather.cli()");
     if (args.length != 2) {
       System.out.println("Usage: <analyzer> input-file output-file");
       return;
@@ -105,21 +108,22 @@ implements Analyzer
   @Override
   public void setup ()
   {
-    dor = (DomainObjectReader) SpringApplicationContext.getBean("reader");
-
+    dor = (DomainObjectReader)getBean("domainObjectReader");
     dor.registerNewObjectListener(new TimeslotUpdateHandler(),
                                   TimeslotUpdate.class);
     dor.registerNewObjectListener(new TariffTxHandler(),
                                   TariffTransaction.class);
-    customerRepo = (CustomerRepo)this.getBean("customerRepo");
-    solarCustomers = new HashSet<CustomerInfo>();
+    dor.registerNewObjectListener(new WeatherReportHandler(),
+                                  WeatherReport.class);
     try {
+      System.out.println("Writing to " + dataFilename);
       data = new PrintWriter(new File(dataFilename));
     }
     catch (FileNotFoundException e) {
-      // TODO Auto-generated catch block
+      System.out.println("Data output failed: " + e.toString());
       e.printStackTrace();
     }
+    weatherReports = new HashMap<>();
     dataInit = false;
   }
 
@@ -137,23 +141,33 @@ implements Analyzer
   private void summarizeTimeslot (Instant instant)
   {
     if (!dataInit) {
-      // first time through -- extract the list of solar customers
-      for (CustomerInfo info : customerRepo.list()) {
-        if (info.getPowerType() == PowerType.SOLAR_PRODUCTION)
-          solarCustomers.add(info);
-      }
+      // first time through nothing to but print header
+      data.println("slot, dow, hour, production, consumption, temp, wind, cloud");
+      //gameId = Competition.currentCompetition().getName();
       dataInit = true;
       return;
     }
 
-    // print timeslot index and dow
+    // reject rows with zero prod, cons
+    if (0.0 == produced && 0.0 == used)
+      return;
+
+    // print timeslot, dow, hod,
     data.print(String.format("%d, %d, %d, ",
                              timeslot,
                              instant.get(DateTimeFieldType.dayOfWeek()),
                              instant.get(DateTimeFieldType.hourOfDay())));
-    // print customer usage, production
-    data.println(String.format("%.3f, %.3f", produced, 0.0));
+    // print customer production, consumption, 
+    data.print(String.format("%.3f, %.3f, ",
+                             produced, used));
+    // look up the weather report, print the data
+    WeatherReport wr = weatherReports.get(timeslot);
+    data.println(String.format("%.3f, %.3f, %.3f",
+                               wr.getTemperature(), wr.getWindSpeed(),
+                               wr.getCloudCover()));
+    weatherReports.remove(timeslot);
     produced = 0.0;
+    used = 0.0;
   }
 
   // -----------------------------------
@@ -178,11 +192,26 @@ implements Analyzer
     public void handleNewObject (Object thing)
     {
       TariffTransaction tx = (TariffTransaction)thing;
+      //Broker broker = tx.getBroker();
 
-      if (tx.getTxType() == TariffTransaction.Type.PRODUCE
-          && solarCustomers.contains(tx.getCustomerInfo())) {
+      if (tx.getTxType() == TariffTransaction.Type.CONSUME) {
+        used += tx.getKWh() / 1000.0;
+      }
+      else if (tx.getTxType() == TariffTransaction.Type.PRODUCE) {
         produced += tx.getKWh() / 1000.0;
       }
-    } 
+    }
+  }
+
+  // -----------------------------------
+  // catch WeatherReports
+  class WeatherReportHandler implements NewObjectListener
+  {
+    @Override
+    public void handleNewObject (Object thing)
+    {
+      WeatherReport wr = (WeatherReport)thing;
+      weatherReports.put(wr.getTimeslotIndex(), wr);
+    }
   }
 }
