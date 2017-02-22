@@ -19,7 +19,9 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+
 import org.joda.time.Instant;
 import org.powertac.common.TimeService;
 import org.powertac.common.WeatherReport;
@@ -38,7 +40,7 @@ public class WeatherStats
 extends LogtoolContext
 implements Analyzer
 {
-  static private Logger log = Logger.getLogger(WeatherStats.class.getName());
+  static private Logger log = LogManager.getLogger(WeatherStats.class.getName());
 
   private DomainObjectReader dor;
   

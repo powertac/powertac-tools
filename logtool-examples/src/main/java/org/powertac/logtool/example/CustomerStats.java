@@ -21,7 +21,9 @@ import java.io.PrintWriter;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+
 import org.joda.time.Instant;
 import org.powertac.common.CustomerInfo;
 import org.powertac.common.TimeService;
@@ -46,7 +48,7 @@ public class CustomerStats
 extends LogtoolContext
 implements Analyzer
 {
-  static private Logger log = Logger.getLogger(CustomerStats.class.getName());
+  static private Logger log = LogManager.getLogger(CustomerStats.class.getName());
 
   private DomainObjectReader dor;
   private CustomerRepo customerRepo;
