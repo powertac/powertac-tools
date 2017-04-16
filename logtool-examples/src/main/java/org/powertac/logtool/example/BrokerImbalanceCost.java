@@ -118,7 +118,7 @@ implements Analyzer
   @Override
   public void setup ()
   {
-    dor = (DomainObjectReader) getBean("reader");
+    dor = (DomainObjectReader) getBean("domainObjectReader");
     brokerRepo = (BrokerRepo) getBean("brokerRepo");
     dor.registerNewObjectListener(new TimeslotUpdateHandler(),
                                   TimeslotUpdate.class);
