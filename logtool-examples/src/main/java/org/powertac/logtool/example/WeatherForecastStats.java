@@ -24,14 +24,10 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 
 import org.joda.time.Instant;
-import org.powertac.common.TimeService;
 import org.powertac.common.WeatherForecast;
 import org.powertac.common.WeatherForecastPrediction;
 import org.powertac.common.WeatherReport;
-import org.powertac.common.spring.SpringApplicationContext;
 import org.powertac.logtool.LogtoolContext;
-import org.powertac.logtool.common.DomainObjectReader;
-import org.powertac.logtool.common.NewObjectListener;
 import org.powertac.logtool.ifc.Analyzer;
 
 /**
@@ -49,10 +45,6 @@ extends LogtoolContext
 implements Analyzer
 {
   static private Logger log = LogManager.getLogger(WeatherForecastStats.class.getName());
-
-  private DomainObjectReader dor;
-  
-  private TimeService timeService;
 
   // data output file
   private PrintWriter temp = null;
@@ -104,13 +96,6 @@ implements Analyzer
   @Override
   public void setup ()
   {
-    dor = (DomainObjectReader) SpringApplicationContext.getBean("reader");
-    timeService = (TimeService) SpringApplicationContext.getBean("timeService");
-
-    dor.registerNewObjectListener(new WeatherReportHandler(),
-                                  WeatherReport.class);
-    dor.registerNewObjectListener(new WeatherForecastHandler(),
-                                  WeatherForecast.class);
     try {
       temp = new PrintWriter(new File(tempFilename));
       wind= new PrintWriter(new File(windFilename));
@@ -163,38 +148,26 @@ implements Analyzer
 
   // -------------------------------
   // catch WeatherReports
-  class WeatherReportHandler implements NewObjectListener
+  Instant currentDay = null;
+
+  public void handleMessage (WeatherReport rpt)
   {
-    Instant currentDay = null;
-    
-    @Override
-    public void handleNewObject (Object thing)
-    {
-      WeatherReport rpt = (WeatherReport)thing;
-      Element el = getElementForTs(rpt.getTimeslotIndex());
-      el.reportedTemp = rpt.getTemperature();
-      el.reportedWind = rpt.getWindSpeed();
-    }
+    Element el = getElementForTs(rpt.getTimeslotIndex());
+    el.reportedTemp = rpt.getTemperature();
+    el.reportedWind = rpt.getWindSpeed();
   }
 
-  class WeatherForecastHandler implements NewObjectListener
+  public void handleMessage (WeatherForecast fcst)
   {
-
-    @Override
-    public void handleNewObject (Object thing)
-    {
-      WeatherForecast fcst = (WeatherForecast)thing;
-      int ts = fcst.getTimeslotIndex();
-      int index = ts + 1;
-      for (WeatherForecastPrediction pred : fcst.getPredictions()) {
-        Element el = getElementForTs(index);
-        int lead = index - ts - 1;
-        el.forecastTemp[lead] = pred.getTemperature();
-        el.forecastWind[lead] = pred.getWindSpeed();
-        index += 1;
-      }
+    int ts = fcst.getTimeslotIndex();
+    int index = ts + 1;
+    for (WeatherForecastPrediction pred : fcst.getPredictions()) {
+      Element el = getElementForTs(index);
+      int lead = index - ts - 1;
+      el.forecastTemp[lead] = pred.getTemperature();
+      el.forecastWind[lead] = pred.getWindSpeed();
+      index += 1;
     }
-
   }
 
   // Data storage element
