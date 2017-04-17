@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 by the original author
+ * Copyright (c) 2016-2017 by John Collins
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,16 +24,10 @@ import java.util.Map;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 
-import org.joda.time.Instant;
 import org.powertac.common.CustomerInfo;
-import org.powertac.common.TimeService;
-import org.powertac.common.WeatherReport;
 import org.powertac.common.enumerations.PowerType;
 import org.powertac.common.repo.CustomerRepo;
-import org.powertac.common.spring.SpringApplicationContext;
 import org.powertac.logtool.LogtoolContext;
-import org.powertac.logtool.common.DomainObjectReader;
-import org.powertac.logtool.common.NewObjectListener;
 import org.powertac.logtool.ifc.Analyzer;
 
 /**
@@ -50,7 +44,6 @@ implements Analyzer
 {
   static private Logger log = LogManager.getLogger(CustomerStats.class.getName());
 
-  private DomainObjectReader dor;
   private CustomerRepo customerRepo;
 
   // data output file
@@ -95,7 +88,6 @@ implements Analyzer
   @Override
   public void setup ()
   {
-    dor = (DomainObjectReader) getBean("reader");
     customerRepo = (CustomerRepo)getBean("customerRepo");
 
     customerByType = new HashMap<>();
