@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, 2017 by John E. Collins
+ * Copyright (c) 2016-2017 by John Collins
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,40 +18,44 @@ package org.powertac.logtool.example;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 
-import org.joda.time.Instant;
-import org.powertac.common.TimeService;
-import org.powertac.common.WeatherReport;
-import org.powertac.common.spring.SpringApplicationContext;
+import org.powertac.common.CustomerInfo;
+import org.powertac.common.enumerations.PowerType;
+import org.powertac.common.repo.CustomerRepo;
 import org.powertac.logtool.LogtoolContext;
-import org.powertac.logtool.common.DomainObjectReader;
-import org.powertac.logtool.common.NewObjectListener;
 import org.powertac.logtool.ifc.Analyzer;
 
 /**
- * Pulls out weather reports, generates daily temperature reports.
+ * Counts customer instances of various types. Note that it's not enough
+ * to catch the creation of the CustomerInfo instances in the state log,
+ * because the PowerType is set in a separate operation. Therefore, we just
+ * let them accumulate in the CustomerRepo and count them at the end.
  * 
  * @author John Collins
  */
-public class WeatherStats
+public class CustomerStats
 extends LogtoolContext
 implements Analyzer
 {
-  static private Logger log = LogManager.getLogger(WeatherStats.class.getName());
+  static private Logger log = LogManager.getLogger(CustomerStats.class.getName());
 
-  private TimeService timeService;
+  private CustomerRepo customerRepo;
 
   // data output file
   private PrintWriter data = null;
-  private String dataFilename = "temps.txt";
+  private String dataFilename = "customers.txt";
+
+  Map<PowerType, Integer> customerByType;
 
   /**
    * Default constructor
    */
-  public WeatherStats ()
+  public CustomerStats ()
   {
     super();
   }
@@ -62,7 +66,7 @@ implements Analyzer
    */
   public static void main (String[] args)
   {
-    new WeatherStats().cli(args);
+    new CustomerStats().cli(args);
   }
   
   /**
@@ -84,7 +88,11 @@ implements Analyzer
   @Override
   public void setup ()
   {
-    timeService = (TimeService) SpringApplicationContext.getBean("timeService");
+    customerRepo = (CustomerRepo)getBean("customerRepo");
+
+    customerByType = new HashMap<>();
+    //dor.registerNewObjectListener(new CustomerInfoHandler(),
+    //                              CustomerInfo.class);
     try {
       data = new PrintWriter(new File(dataFilename));
     }
@@ -99,20 +107,16 @@ implements Analyzer
   @Override
   public void report ()
   {
-    data.close();
-  }
-
-  // -------------------------------
-  // catch WeatherReports
-  Instant currentDay = null;
-
-  public void handleMessage (WeatherReport rpt)
-  {
-    Instant midnight = timeService.getCurrentTime();
-    if (null == currentDay || midnight.isAfter(currentDay)) {
-      currentDay = midnight;
-      data.format("%n%s%n", currentDay.toString());        
+    for (CustomerInfo info: customerRepo.list()) {
+      PowerType pt = info.getPowerType();
+      Integer count = customerByType.get(pt);
+      int cc = info.getPopulation() + (null == count?0:count);
+      customerByType.put(pt, cc);
     }
-    data.format("%.2f ", rpt.getTemperature());
-  } 
+    for (PowerType pt: customerByType.keySet()) {
+      data.format("%s: %d\n", pt.toString(), customerByType.get(pt));
+    }
+    data.close();
+    return;
+  }
 }

@@ -31,13 +31,15 @@ import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+
 import org.powertac.balancemkt.ChargeInfo;
 import org.powertac.balancemkt.SettlementContext;
 import org.powertac.balancemkt.StaticSettlementProcessor;
 import org.powertac.common.Broker;
 import org.powertac.common.Competition;
-import org.powertac.common.RegulationCapacity;
+import org.powertac.common.RegulationAccumulator;
 import org.powertac.common.TariffSpecification;
 import org.powertac.common.interfaces.CapacityControl;
 import org.powertac.common.msg.BalancingOrder;
@@ -80,7 +82,7 @@ public class BrokerBalancingActions
 extends LogtoolContext
 implements Analyzer
 {
-  static private Logger log = Logger.getLogger(BrokerBalancingActions.class.getName());
+  static private Logger log = LogManager.getLogger(BrokerBalancingActions.class.getName());
 
   private DomainObjectReader dor;
   private BrokerRepo brokerRepo;
@@ -274,7 +276,7 @@ implements Analyzer
       for (TariffSpecification spec: balancingOrders.keySet()) {
         if (spec.getBroker() == bd.getBroker()) {
           BalancingOrder order = balancingOrders.get(spec);
-          RegulationCapacity cap =
+          RegulationAccumulator cap =
               traceData.getRegulationCapacity(order.getId());
           if (null == cap)
             continue;
@@ -479,8 +481,8 @@ implements Analyzer
     int timeslot = 0;
     HashMap<Broker, Double> brokerBalance =
         new HashMap<Broker, Double>();
-    HashMap<Long, RegulationCapacity> boCapacity =
-        new HashMap<Long, RegulationCapacity>(); 
+    HashMap<Long, RegulationAccumulator> boCapacity =
+        new HashMap<Long, RegulationAccumulator>(); 
     double pPlus = 0.0;
     double pMinus = 0.0;
     double totalImbalance = 0.0;
@@ -510,10 +512,10 @@ implements Analyzer
 
     void addRegulationCapacity (Long balancingOrder, double up, double down)
     {
-      boCapacity.put(balancingOrder, new RegulationCapacity(null, up, down));
+      boCapacity.put(balancingOrder, new RegulationAccumulator(up, down));
     }
 
-    RegulationCapacity getRegulationCapacity (Long boId)
+    RegulationAccumulator getRegulationCapacity (Long boId)
     {
       return boCapacity.get(boId);
     }
@@ -578,7 +580,7 @@ implements Analyzer
       }
       if (!boCapacity.isEmpty()) {
         for (Long id: boCapacity.keySet()) {
-          RegulationCapacity rc = boCapacity.get(id);
+          RegulationAccumulator rc = boCapacity.get(id);
           result.append(String.format(" %d(%.4f,%.4f)",
                                       id, rc.getUpRegulationCapacity(),
                                       rc.getDownRegulationCapacity()));
@@ -710,7 +712,7 @@ implements Analyzer
     }
 
     @Override
-    public RegulationCapacity getRegulationCapacity (BalancingOrder order)
+    public RegulationAccumulator getRegulationCapacity (BalancingOrder order)
     {
       return traceData.getRegulationCapacity(order.getId());
     }

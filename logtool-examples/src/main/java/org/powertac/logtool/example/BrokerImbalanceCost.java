@@ -22,7 +22,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
-import org.apache.log4j.Logger;
+
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+
 import org.powertac.common.BalancingTransaction;
 import org.powertac.common.Broker;
 import org.powertac.common.Competition;
@@ -55,7 +58,7 @@ public class BrokerImbalanceCost
 extends LogtoolContext
 implements Analyzer
 {
-  static private Logger log = Logger.getLogger(BrokerImbalanceCost.class.getName());
+  static private Logger log = LogManager.getLogger(BrokerImbalanceCost.class.getName());
 
   private DomainObjectReader dor;
 
@@ -115,7 +118,7 @@ implements Analyzer
   @Override
   public void setup ()
   {
-    dor = (DomainObjectReader) getBean("reader");
+    dor = (DomainObjectReader) getBean("domainObjectReader");
     brokerRepo = (BrokerRepo) getBean("brokerRepo");
     dor.registerNewObjectListener(new TimeslotUpdateHandler(),
                                   TimeslotUpdate.class);
