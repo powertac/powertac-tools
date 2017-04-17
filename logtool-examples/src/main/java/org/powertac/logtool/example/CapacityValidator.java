@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 by John E. Collins
+ * Copyright (c) 2016. 2017 by John E. Collins
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.net.URL;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -26,6 +27,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.powertac.common.Broker;
@@ -37,8 +39,6 @@ import org.powertac.common.TariffTransaction;
 import org.powertac.common.msg.CustomerBootstrapData;
 import org.powertac.common.msg.TimeslotUpdate;
 import org.powertac.logtool.LogtoolContext;
-import org.powertac.logtool.common.DomainObjectReader;
-import org.powertac.logtool.common.NewObjectListener;
 import org.powertac.logtool.ifc.Analyzer;
 
 /**
@@ -65,12 +65,11 @@ implements Analyzer
 {
   static Logger log = LogManager.getLogger(CapacityValidator.class.getSimpleName());
 
-  private DomainObjectReader dor;
   //private TimeService timeService;
   private BootstrapDataRepo bootstrapRepo;
   //private TimeslotRepo timeslotRepo;
   private BrokerRepo brokerRepo;
-  private String bootFilename;
+  private URL bootLoc;
   //private Competition competition;
 
   // option flag
@@ -158,7 +157,7 @@ implements Analyzer
         Files.newDirectoryStream(dir, "*boot.xml")) {
       for (Path entry: stream)
         bootPath = entry;
-      bootFilename = bootPath.toString();
+      bootLoc = new URL("file://" + bootPath.toString());
     }
     catch (IOException e) {
       System.out.println("Could not find boot record");
@@ -191,8 +190,8 @@ implements Analyzer
   public void setup ()
   {
     // Read the boot record
-    bootstrapRepo = (BootstrapDataRepo)getBean("bootstrapRepo");
-    bootstrapRepo.readBootRecord(bootFilename);
+    bootstrapRepo = (BootstrapDataRepo)getBean("bootstrapDataRepo");
+    bootstrapRepo.readBootRecord(bootLoc);
     Competition bootCompetition =
         bootstrapRepo.getBootstrapCompetition();
     timeslot = bootCompetition.getBootstrapTimeslotCount() +
@@ -202,14 +201,6 @@ implements Analyzer
     //timeslotRepo = (TimeslotRepo)getBean("timeslotRepo");
     brokerRepo = (BrokerRepo)getBean("brokerRepo");
 
-    // Setup up the DOR
-    dor = (DomainObjectReader)getBean("reader");
-    dor.registerNewObjectListener(new TimeslotUpdateHandler(),
-                                  TimeslotUpdate.class);
-    dor.registerNewObjectListener(new TariffTxHandler(),
-                                  TariffTransaction.class);
-    dor.registerNewObjectListener(new CapacityTxHandler(),
-                                  CapacityTransaction.class);
     try {
       data = new PrintWriter(new File(dataFilename));
     }
@@ -452,6 +443,41 @@ implements Analyzer
     }
   }
 
+  // -----------------------------------
+  // catch TimeslotUpdate events
+  public void handleMessage (TimeslotUpdate msg)
+  {
+    summarizeTimeslot();
+    timeslot = msg.getFirstEnabled() - 1;
+    log.info("Timeslot " + timeslot);
+  }
+
+  // -----------------------------------
+  // catch TariffTransactions
+  public void handleMessage (TariffTransaction tx)
+  {
+    Broker broker = tx.getBroker();
+
+    if (tx.getTxType() == TariffTransaction.Type.CONSUME) {
+      brokerUsed.put(broker,
+                     brokerUsed.get(broker) + tx.getKWh());
+      //used += tx.getKWh();
+    }
+    else if (tx.getTxType() == TariffTransaction.Type.PRODUCE) {
+      brokerProduced.put(broker,
+                         brokerProduced.get(broker) + tx.getKWh());
+      //produced += tx.getKWh();
+    }
+  }
+
+  // -------------------------------------
+  // catch CapacityTransactions
+  public void handleMessage (CapacityTransaction tx)
+  {
+    Broker broker = tx.getBroker();
+    brokerCapacityTx.get(broker).add(tx);
+  }
+
   // --------------------------------------------------------
   // Sortable data structure for tracking peak-demand events
   class PeakEvent implements Comparable<PeakEvent>
@@ -476,56 +502,6 @@ implements Analyzer
       else
         // make comparison consistent with equals
         return this.index - o.index;
-    }
-  }
-
-  // -----------------------------------
-  // catch TimeslotUpdate events
-  class TimeslotUpdateHandler implements NewObjectListener
-  {
-    @Override
-    public void handleNewObject (Object thing)
-    {
-      summarizeTimeslot();
-      TimeslotUpdate msg = (TimeslotUpdate) thing;
-      timeslot = msg.getFirstEnabled() - 1;
-      log.info("Timeslot " + timeslot);
-    }
-  }
-
-  // -----------------------------------
-  // catch TariffTransactions
-  class TariffTxHandler implements NewObjectListener
-  {
-    @Override
-    public void handleNewObject (Object thing)
-    {
-      TariffTransaction tx = (TariffTransaction)thing;
-      Broker broker = tx.getBroker();
-
-      if (tx.getTxType() == TariffTransaction.Type.CONSUME) {
-        brokerUsed.put(broker,
-                       brokerUsed.get(broker) + tx.getKWh());
-        //used += tx.getKWh();
-      }
-      else if (tx.getTxType() == TariffTransaction.Type.PRODUCE) {
-        brokerProduced.put(broker,
-                           brokerProduced.get(broker) + tx.getKWh());
-        //produced += tx.getKWh();
-      }
-    }
-  }
-
-  // -------------------------------------
-  // catch CapacityTransactions
-  class CapacityTxHandler implements NewObjectListener
-  {
-    @Override
-    public void handleNewObject (Object thing)
-    {
-      CapacityTransaction tx = (CapacityTransaction)thing;
-      Broker broker = tx.getBroker();
-      brokerCapacityTx.get(broker).add(tx);
     }
   }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015 by John E. Collins
+ * Copyright (c) 2015-2017 by John E. Collins
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,8 +29,6 @@ import org.powertac.common.Competition;
 import org.powertac.common.DistributionTransaction;
 import org.powertac.common.MarketTransaction;
 import org.powertac.logtool.LogtoolContext;
-import org.powertac.logtool.common.DomainObjectReader;
-import org.powertac.logtool.common.NewObjectListener;
 import org.powertac.logtool.ifc.Analyzer;
 
 /**
@@ -47,8 +45,6 @@ extends LogtoolContext
 implements Analyzer
 {
   //static private Logger log = Logger.getLogger(BrokerCosts.class.getName());
-
-  private DomainObjectReader dor;
 
   private String gameId;
 
@@ -104,17 +100,6 @@ implements Analyzer
   @Override
   public void setup ()
   {
-    dor = (DomainObjectReader)getBean("reader");
-    dor.registerNewObjectListener(new MktTxHandler(),
-                                  MarketTransaction.class);
-    dor.registerNewObjectListener(new BalTxHandler(),
-                                  BalancingTransaction.class);
-    dor.registerNewObjectListener(new DistTxHandler(),
-                                  DistributionTransaction.class);
-    dor.registerNewObjectListener(new CapTxHandler(),
-                                  CapacityTransaction.class);
-    dor.registerNewObjectListener(new BankTxHandler(),
-                                  BankTransaction.class);
     brokerMkt = new HashMap<>();
     brokerBal = new HashMap<>();
     brokerDist = new HashMap<>();
@@ -171,85 +156,59 @@ implements Analyzer
 
   // -----------------------------------
   // catch transactions
-  class MktTxHandler implements NewObjectListener
+  public void handleMessage (MarketTransaction msg)
   {
-    @Override
-    public void handleNewObject (Object thing)
-    {
-      initMaybe();
-      MarketTransaction msg = (MarketTransaction) thing;
-      // contains MWh and price/MWh
-      Broker broker = msg.getBroker();
-      if (brokerMkt.keySet().contains(broker)) {
-        double amt =
-            -msg.getMWh() * msg.getPrice() * Math.signum(msg.getPrice());
-        brokerMkt.put(broker, brokerMkt.get(broker) + amt);
-      }
+    initMaybe();
+    // contains MWh and price/MWh
+    Broker broker = msg.getBroker();
+    if (brokerMkt.keySet().contains(broker)) {
+      double amt =
+          -msg.getMWh() * msg.getPrice() * Math.signum(msg.getPrice());
+      brokerMkt.put(broker, brokerMkt.get(broker) + amt);
     }
   }
 
-  class BalTxHandler implements NewObjectListener
+  public void handleMessage (BalancingTransaction msg)
   {
-    @Override
-    public void handleNewObject (Object thing)
-    {
-      initMaybe();
-      BalancingTransaction msg = (BalancingTransaction) thing;
-      // contains kWH and charge
-      Broker broker = msg.getBroker();
-      if (brokerBal.keySet().contains(broker)) {
-        double amt = msg.getCharge();
-        brokerBal.put(broker, brokerBal.get(broker) + amt);
-      }
+    initMaybe();
+    // contains kWH and charge
+    Broker broker = msg.getBroker();
+    if (brokerBal.keySet().contains(broker)) {
+      double amt = msg.getCharge();
+      brokerBal.put(broker, brokerBal.get(broker) + amt);
     }
   }
 
-  class DistTxHandler implements NewObjectListener
+  public void handleMessage (DistributionTransaction msg)
   {
-    @Override
-    public void handleNewObject (Object thing)
-    {
-      initMaybe();
-      DistributionTransaction msg = (DistributionTransaction) thing;
-      // contains meter counts and charge
-      Broker broker = msg.getBroker();
-      if (brokerDist.keySet().contains(broker)) {
-        double amt = msg.getCharge();
-        brokerDist.put(broker, brokerDist.get(broker) + amt);
-      }
+    initMaybe();
+    // contains meter counts and charge
+    Broker broker = msg.getBroker();
+    if (brokerDist.keySet().contains(broker)) {
+      double amt = msg.getCharge();
+      brokerDist.put(broker, brokerDist.get(broker) + amt);
     }
   }
 
-  class CapTxHandler implements NewObjectListener
+  public void handleMessage (CapacityTransaction msg)
   {
-    @Override
-    public void handleNewObject (Object thing)
-    {
-      initMaybe();
-      CapacityTransaction msg = (CapacityTransaction) thing;
-      // contains kWH and charge
-      Broker broker = msg.getBroker();
-      if (brokerCap.keySet().contains(broker)) {
-        double amt = msg.getCharge();
-        brokerCap.put(broker, brokerCap.get(broker) + amt);
-      }
+    initMaybe();
+    // contains kWH and charge
+    Broker broker = msg.getBroker();
+    if (brokerCap.keySet().contains(broker)) {
+      double amt = msg.getCharge();
+      brokerCap.put(broker, brokerCap.get(broker) + amt);
     }
   }
 
-  class BankTxHandler implements NewObjectListener
+  public void handleMessage (BankTransaction msg)
   {
-    @Override
-    public void handleNewObject (Object thing)
-    {
-      initMaybe();
-      BankTransaction msg = (BankTransaction) thing;
-      // contains interest amt
-      Broker broker = msg.getBroker();
-      if (brokerBank.keySet().contains(broker)) {
-        double amt = msg.getAmount();
-        brokerBank.put(broker, brokerBank.get(broker) + amt);
-      }
+    initMaybe();
+    // contains interest amt
+    Broker broker = msg.getBroker();
+    if (brokerBank.keySet().contains(broker)) {
+      double amt = msg.getAmount();
+      brokerBank.put(broker, brokerBank.get(broker) + amt);
     }
   }
-
 }

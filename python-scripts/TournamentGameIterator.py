@@ -1,8 +1,8 @@
 #!/usr/bin/python3
 '''
-Extracts state logs and boot records from compressed game files downloaded from
+Extracts sim and boot records from compressed game files downloaded from
 a tournament archive. Call logIter(url, dir) where url is the archive and
-dir is the directory that is to containing the game logs.
+dir is the directory that is to contain the (compressed) game logs.
 This returns an iterator over directory names within the target directory.
 Initially this directory must exist, and must contain a txt file containing
 the game numbers for all the games to be downloaded. As an enhancement, the
@@ -21,7 +21,6 @@ def logIter (tournamentURL, tournamentDir):
     of compressed game logs, downloading them first if necessary.
     Each dir will contain the state log, trace log, and boot.xml file
     '''
-    #path = Path(tournamentDir)
     games = open(os.path.join(tournamentDir, "games.txt"), 'r')
     return (extractLog(tournamentURL, game.rstrip(), tournamentDir)
             for game in games)
@@ -29,7 +28,8 @@ def logIter (tournamentURL, tournamentDir):
 def extractLog (url, game, dirPath):
     '''
     Extracts logs from compressed game log file, if not already extracted.
-    Returns path to state log.
+    Returns the name of a directory inside tournamentDir that contains
+    state and trace logs.
     '''
     # make sure we have the bundle locally
     currentDir = os.getcwd()
@@ -41,6 +41,7 @@ def extractLog (url, game, dirPath):
         with open(gameBundlePath, 'wb') as f:
             f.write(g.read())
 
+    # extract the bundle into the directory if needed
     gameDirPath = game
     if not os.path.isdir(gameDirPath):
         tar = tarfile.open(gameBundlePath)

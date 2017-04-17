@@ -20,7 +20,9 @@ import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 import java.util.HashMap;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+
 import org.powertac.common.BalancingTransaction;
 import org.powertac.common.Competition;
 import org.powertac.common.MarketTransaction;
@@ -72,7 +74,7 @@ public class EnergyMixStats
 extends LogtoolContext
 implements Analyzer
 {
-  static private Logger log = Logger.getLogger(EnergyMixStats.class.getName());
+  static private Logger log = LogManager.getLogger(EnergyMixStats.class.getName());
 
   private DomainObjectReader dor;
 

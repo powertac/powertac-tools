@@ -21,7 +21,9 @@ import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+
 import org.powertac.common.BalancingTransaction;
 import org.powertac.common.Broker;
 import org.powertac.common.Competition;
@@ -51,7 +53,7 @@ public class TariffMktShare
 extends LogtoolContext
 implements Analyzer
 {
-  static private Logger log = Logger.getLogger(TariffMktShare.class.getName());
+  static private Logger log = LogManager.getLogger(TariffMktShare.class.getName());
 
   private DomainObjectReader dor;
 

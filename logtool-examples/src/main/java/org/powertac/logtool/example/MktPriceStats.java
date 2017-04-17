@@ -21,7 +21,9 @@ import java.io.PrintWriter;
 import java.util.Map;
 import java.util.TreeMap;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeFieldType;
 import org.powertac.common.ClearedTrade;
@@ -53,7 +55,7 @@ public class MktPriceStats
 extends LogtoolContext
 implements Analyzer
 {
-  static private Logger log = Logger.getLogger(MktPriceStats.class.getName());
+  static private Logger log = LogManager.getLogger(MktPriceStats.class.getName());
 
   // service references
   private TimeslotRepo timeslotRepo;
