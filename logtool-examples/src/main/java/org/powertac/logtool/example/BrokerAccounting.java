@@ -31,6 +31,7 @@ import org.powertac.common.BalancingTransaction;
 import org.powertac.common.BankTransaction;
 import org.powertac.common.Broker;
 import org.powertac.common.CapacityTransaction;
+import org.powertac.common.CashPosition;
 import org.powertac.common.Competition;
 import org.powertac.common.DistributionTransaction;
 import org.powertac.common.MarketTransaction;
@@ -64,7 +65,8 @@ import org.powertac.logtool.ifc.Analyzer;
  * <li>BalancingControlEvent</li>
  * <li>BankTransaction (interest payments)</li>
  * </ul>
- * followed by the next broker ... unless the per-broker option is given.
+ * followed by the broker's CashPosition. Line continues with the next broker
+ * unless the per-broker option is given.
  * 
  * Usage: BrokerMktPrices [--per-broker] state-log-filename output-data-filename
  * 
@@ -145,12 +147,12 @@ implements Analyzer
       brokerData.put(broker, new BrokerData());
     }
     if (perBroker) {
-      output.println("ts,dow,hod,broker,ttx-sc,ttx-sd,ttx-uc,ttx-ud,mtx-c,mtx-d,btx-c,btx-d,dtx-c,dtx-d,ctx-c,ctx-d,bce-c,bce-d,bank-c,bank-d");
+      output.println("ts,dow,hod,broker,ttx-sc,ttx-sd,ttx-uc,ttx-ud,mtx-c,mtx-d,btx-c,btx-d,dtx-c,dtx-d,ctx-c,ctx-d,bce-c,bce-d,bank-c,bank-d,cash");
     }
     else {
       output.print("ts,dow,hod");
       for (int i = 0; i < brokerList.size(); i++) {
-        output.printf(",broker%d,ttx-sc,ttx-sd,ttx-uc,ttx-ud,mtx-c,mtx-d,btx-c,btx-d,dtx-c,dtx-d,ctx-c,ctx-d,bce-c,bce-d,bank-c,bank-d",
+        output.printf(",broker%d,ttx-sc,ttx-sd,ttx-uc,ttx-ud,mtx-c,mtx-d,btx-c,btx-d,dtx-c,dtx-d,ctx-c,ctx-d,bce-c,bce-d,bank-c,bank-d,cash",
                       i);
       }
       output.println();
@@ -213,8 +215,8 @@ implements Analyzer
     output.format(",%.4f,%.4f,%.4f,%.4f,%.4f,%.4f",
                   bd.btxC, bd.btxD, bd.dtxC, bd.dtxD, bd.ctxC, bd.ctxD);
     // balancing control, bank
-    output.format(",%.4f,%.4f,%.4f,%.4f",
-                  bd.bceC, bd.bceD, bd.bankC, bd.bankD);
+    output.format(",%.4f,%.4f,%.4f,%.4f,%.4f",
+                  bd.bceC, bd.bceD, bd.bankC, bd.bankD, bd.cash);
     bd.clear();
   }
 
@@ -369,6 +371,17 @@ implements Analyzer
   }
 
   // -----------------------------------
+  // catch CashPosition messages
+  public void handleMessage (CashPosition cp)
+  {
+    Broker broker = cp.getBroker();
+    if (!brokerList.contains(broker))
+      return;
+    BrokerData bd = brokerData.get(broker);
+    bd.cash = cp.getBalance();
+  }
+
+  // -----------------------------------
   // catch TimeslotUpdate events
   private int skip = 1; // Skip the first one
   public void handleMessage (TimeslotUpdate tu)
@@ -398,6 +411,7 @@ implements Analyzer
     double bceD;
     double bankC;
     double bankD;
+    double cash;
 
     BrokerData ()
     {
@@ -421,6 +435,7 @@ implements Analyzer
       bceD = 0.0;
       bankC = 0.0;
       bankD = 0.0;
+      cash = 0.0;
     }
   }
 }
