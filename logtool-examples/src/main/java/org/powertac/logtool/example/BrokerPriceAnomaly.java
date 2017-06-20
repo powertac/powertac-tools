@@ -127,8 +127,9 @@ implements Analyzer
     if (!started)
       return;
     if (Math.signum(tx.getMWh()) == Math.signum(tx.getPrice())) {
-      output.printf("mtx: %d, %s buys %.4f at %.4f\n",
+      output.printf("mtx: %d, %s %s %.4f at %.4f\n",
                     tx.getId(), tx.getBroker().getUsername(),
+                    tx.getMWh() < 0.0? "sells": "buys",
                     tx.getMWh(), tx.getPrice());
     }
   }
