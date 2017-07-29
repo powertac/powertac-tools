@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015 by John Collins
+ * Copyright (c) 2015, 2017 by John Collins
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -66,8 +66,6 @@ implements Analyzer
 {
   static private Logger log = LogManager.getLogger(ImbalanceSummary.class.getName());
 
-  private DomainObjectReader dor;
-
   private BrokerRepo brokerRepo;
 
   // Transactions for current timeslot
@@ -122,15 +120,7 @@ implements Analyzer
   @Override
   public void setup ()
   {
-    dor = (DomainObjectReader) getBean("reader");
     brokerRepo = (BrokerRepo) getBean("brokerRepo");
-
-    dor.registerNewObjectListener(new TimeslotUpdateHandler(),
-                                  TimeslotUpdate.class);
-    dor.registerNewObjectListener(new BalancingTxHandler(),
-                                  BalancingTransaction.class);
-    dor.registerNewObjectListener(new TariffTxHandler(),
-                                  TariffTransaction.class);
     try {
       data = new PrintWriter(new File(dataFilename));
     }
@@ -253,46 +243,31 @@ implements Analyzer
   // -------------------------------
   // catch BalancingTransactions
   // We assume there is at most one balancing tx per broker in each timeslot.
-  class BalancingTxHandler implements NewObjectListener
+  public void handleMessage (BalancingTransaction tx)
   {
-    @Override
-    public void handleNewObject (Object thing)
-    {
-      BalancingTransaction tx = (BalancingTransaction)thing;
-      btx.put(tx.getBroker(), tx);
-    } 
-  }
+    btx.put(tx.getBroker(), tx);
+  } 
 
   // -----------------------------------
   // catch TariffTransactions
-  class TariffTxHandler implements NewObjectListener
+  public void handleMessage (TariffTransaction tx)
   {
-    @Override
-    public void handleNewObject (Object thing)
-    {
-      TariffTransaction tx = (TariffTransaction)thing;
-      // only include consumption
-      if (tx.getTxType() == TariffTransaction.Type.CONSUME
-            || tx.getTxType() == TariffTransaction.Type.PRODUCE) {
-        ArrayList<TariffTransaction> txList = ttx.get(tx.getBroker());
-        if (null == txList) {
-          System.err.println("Error: null txList");
-        }
-        txList.add(tx);
+    // only include consumption
+    if (tx.getTxType() == TariffTransaction.Type.CONSUME
+        || tx.getTxType() == TariffTransaction.Type.PRODUCE) {
+      ArrayList<TariffTransaction> txList = ttx.get(tx.getBroker());
+      if (null == txList) {
+        System.err.println("Error: null txList");
       }
-    } 
-  }
+      txList.add(tx);
+    }
+  } 
 
   // -----------------------------------
   // catch TimeslotUpdate events
-  class TimeslotUpdateHandler implements NewObjectListener
+  public void handleMessage (TimeslotUpdate upd)
   {
-
-    @Override
-    public void handleNewObject (Object thing)
-    {
-      summarizeTimeslot();
-    }
+    summarizeTimeslot();
   }
 
   // --------------------------------------
