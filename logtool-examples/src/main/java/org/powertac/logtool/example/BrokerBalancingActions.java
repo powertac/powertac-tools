@@ -47,7 +47,6 @@ import org.powertac.common.msg.EconomicControlEvent;
 import org.powertac.common.msg.TimeslotUpdate;
 import org.powertac.common.repo.BrokerRepo;
 import org.powertac.common.repo.TariffRepo;
-import org.powertac.common.spring.SpringApplicationContext;
 import org.powertac.logtool.LogtoolContext;
 import org.powertac.logtool.ifc.Analyzer;
 
@@ -177,8 +176,8 @@ implements Analyzer
   @Override
   public void setup ()
   {
-    brokerRepo = (BrokerRepo) SpringApplicationContext.getBean("brokerRepo");
-    tariffRepo = (TariffRepo) SpringApplicationContext.getBean("tariffRepo");
+    brokerRepo = (BrokerRepo) getBean("brokerRepo");
+    tariffRepo = (TariffRepo) getBean("tariffRepo");
 
     capacityControl = new CapacityControlSvc();
     settlementContext = new LocalSettlementContext();
@@ -291,7 +290,6 @@ implements Analyzer
                   bd.getBalanceChargeP2());
     }
     data.format("%n");
-    return;
   }
 
   private List<ChargeInfo> generateBrokerData (TraceData traceData)

@@ -18,31 +18,18 @@ package org.powertac.logtool.example;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
 import java.util.TreeSet;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
-import org.powertac.common.BalancingTransaction;
-import org.powertac.common.Broker;
-import org.powertac.common.ClearedTrade;
 import org.powertac.common.Competition;
-import org.powertac.common.MarketTransaction;
 import org.powertac.common.Order;
-import org.powertac.common.Orderbook;
-import org.powertac.common.OrderbookOrder;
-import org.powertac.common.TariffTransaction;
 import org.powertac.common.msg.SimStart;
 import org.powertac.common.msg.TimeslotUpdate;
-import org.powertac.common.repo.BrokerRepo;
 import org.powertac.logtool.LogtoolContext;
-import org.powertac.logtool.common.DomainObjectReader;
-import org.powertac.logtool.common.NewObjectListener;
 import org.powertac.logtool.ifc.Analyzer;
 
 /**
@@ -52,8 +39,10 @@ import org.powertac.logtool.ifc.Analyzer;
  * 24h in the future. The demand quantity and price are taken from the final
  * timeslot in which these numbers are non-null.
  * 
- * Data format per timeslot:
- * gameid, timeslot, (offerQty, offerPrice), (...), ...
+ * The output data file has a header line giving the game ID and pom ID,
+ * followed by a pair of lines for each timeslot formatted as
+ * Qty, timeslot, qty, qty, ...
+ * Price, timeslot, price, price, ...
  *
  * @author John Collins
  */
@@ -62,8 +51,6 @@ extends LogtoolContext
 implements Analyzer
 {
   static private Logger log = LogManager.getLogger(MeritOrder.class.getName());
-
-  private DomainObjectReader dor;
 
   // state and timeslot info
   private int timeslot = -1;
@@ -117,13 +104,6 @@ implements Analyzer
   @Override
   public void setup ()
   {
-//    dor = (DomainObjectReader) getBean("domainObjectReader");
-//    dor.registerNewObjectListener(new TimeslotUpdateHandler(),
-//                                  TimeslotUpdate.class);
-//    dor.registerNewObjectListener(new OrderHandler(),
-//                                  Order.class);
-//    dor.registerNewObjectListener(new OrderbookHandler(),
-//                                  Orderbook.class);
     try {
       data = new PrintWriter(new File(dataFilename));
     }
@@ -144,24 +124,31 @@ implements Analyzer
     // initial offers
     TreeSet<OrderData> offers = initialOffers.get(timeslot);
     if (null == offers) {
-      log.error("null offers ts {}", timeslot);
+      log.warn("null offers ts {}", timeslot);
     }
     else {
-      // heading
-      data.print(String.format("%s, %d", competition.getName(), timeslot));
-      // data
+      // quantities
+      data.printf("Qty, %d", timeslot);
       for (Iterator<OrderData> ods = offers.iterator();
           ods.hasNext();) {
         OrderData od = ods.next();
-        data.print(String.format(", (%.4f, %.4f)", od.quantity, od.price));
+        data.printf(", %.4f", od.quantity);
       }
+      // prices
+      data.printf("\nPrice, %d", timeslot);
+      for (Iterator<OrderData> ods = offers.iterator();
+          ods.hasNext();) {
+        OrderData od = ods.next();
+        data.printf(", %.4f", od.price);
+      }
+      data.println();
     }
-    data.println();
   }
 
   private void initData (int tsIndex)
   {
-    data.println("game, timeslot, (offerQty, offerPrice), ...");
+    data.printf("game %s, pom_id %s\n",
+                competition.getName(), competition.getPomId());
     System.out.println("first ts sn = " + tsIndex);
   }
 
