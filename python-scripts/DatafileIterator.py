@@ -7,7 +7,7 @@ the logs of a tournament.
 import TournamentIterator as ti
 import string, re, os, subprocess
 from pathlib import Path
-
+year = 2016
 processEnv = {'JAVA_HOME': os.environ.get('JAVA_HOME'),
               'Path' : os.environ.get('PATH') }
 
@@ -17,7 +17,10 @@ def extractData (statefileName, extractorClass,
     Extracts data from individual game state log, leaving
     result in data/gameid-pc.data
     '''
-    stateIdRe = re.compile('powertac-{}-(\d+).state'.format(logtype))
+    if year == 2016:
+        stateIdRe = re.compile('powertac-{}-2016_finals_(\d+).state'.format(logtype))
+    elif year != 2016:
+        stateIdRe = re.compile('powertac-{}-(\d+).state'.format(logtype))
     print("Processing ", statefileName)
     m = stateIdRe.search(statefileName)
     if not m:
