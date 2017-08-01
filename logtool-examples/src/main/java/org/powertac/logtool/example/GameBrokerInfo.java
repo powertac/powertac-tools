@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015 by John E. Collins
+ * Copyright (c) 2015, 2017 by John E. Collins
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,17 +20,10 @@ import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 import java.util.HashMap;
 
-import org.apache.log4j.Logger;
-import org.joda.time.DateTimeFieldType;
-import org.joda.time.Instant;
 import org.powertac.common.Broker;
 import org.powertac.common.Competition;
-import org.powertac.common.TariffTransaction;
 import org.powertac.common.msg.TimeslotUpdate;
-import org.powertac.common.spring.SpringApplicationContext;
 import org.powertac.logtool.LogtoolContext;
-import org.powertac.logtool.common.DomainObjectReader;
-import org.powertac.logtool.common.NewObjectListener;
 import org.powertac.logtool.ifc.Analyzer;
 
 /**
@@ -41,6 +34,9 @@ import org.powertac.logtool.ifc.Analyzer;
  * A broker record looks like 
  *   broker, broker-name, broker-id
  * 
+ * TODO - this does not work with newer logs in which the logfile name does
+ * not begin with 'game-'.
+ * 
  * @author John Collins
  */
 public class GameBrokerInfo
@@ -48,8 +44,6 @@ extends LogtoolContext
 implements Analyzer
 {
   //static private Logger log = Logger.getLogger(GameBrokerInfo.class.getName());
-
-  private DomainObjectReader dor;
 
   // data collectors for current timeslot
   private int timeslotCount = 0;
@@ -99,14 +93,6 @@ implements Analyzer
   @Override
   public void setup ()
   {
-    dor = (DomainObjectReader) SpringApplicationContext.getBean("reader");
-
-    dor.registerNewObjectListener(new TimeslotUpdateHandler(),
-                                  TimeslotUpdate.class);
-    dor.registerNewObjectListener(new CompetitionHandler(),
-                                  Competition.class);
-    dor.registerNewObjectListener(new BrokerHandler(),
-                                  Broker.class);
     brokers = new HashMap<String, Broker>();
     try {
       data = new PrintWriter(new File(dataFilename));
@@ -146,39 +132,25 @@ implements Analyzer
 
   // -----------------------------------
   // catch TimeslotUpdate events
-  class TimeslotUpdateHandler implements NewObjectListener
+  public void handleMessage (TimeslotUpdate msg)
   {
-    @Override
-    public void handleNewObject (Object thing)
-    {
-      TimeslotUpdate msg = (TimeslotUpdate) thing;
-      timeslotCount += 1;
-      data.print("-- timeslot " + timeslotCount);
-      data.flush();
-    }
+    timeslotCount += 1;
+    data.print("-- timeslot " + timeslotCount);
+    data.flush();
   }
 
   // -----------------------------------
   // catch the Competition instance
-  class CompetitionHandler implements NewObjectListener
+  public void handleMessage (Competition comp)
   {
-    @Override
-    public void handleNewObject (Object thing)
-    {
-      competition = (Competition)thing;
-    } 
+    competition = comp;
   }
 
   // -----------------------------------
-  class BrokerHandler implements NewObjectListener
+  public void handleMessage (Broker broker)
   {
-    @Override
-    public void handleNewObject (Object thing)
-    {
-      Broker broker = (Broker) thing;
-      if (!(broker.isWholesale() ||
-          broker.getUsername().equals("default broker")))
-        brokers.put(broker.getUsername(), broker);
-    }
+    if (!(broker.isWholesale() ||
+        broker.getUsername().equals("default broker")))
+      brokers.put(broker.getUsername(), broker);
   }
 }

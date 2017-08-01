@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012 by the original author
+ * Copyright (c) 2012,2017 by John Collins
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,9 @@ import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+
 import org.powertac.common.BalancingTransaction;
 import org.powertac.common.Broker;
 import org.powertac.common.Competition;
@@ -29,8 +31,6 @@ import org.powertac.common.TariffTransaction;
 import org.powertac.common.msg.TimeslotUpdate;
 import org.powertac.common.repo.BrokerRepo;
 import org.powertac.logtool.LogtoolContext;
-import org.powertac.logtool.common.DomainObjectReader;
-import org.powertac.logtool.common.NewObjectListener;
 import org.powertac.logtool.ifc.Analyzer;
 import org.powertac.util.Pair;
 
@@ -54,9 +54,7 @@ public class ImbalanceStats
 extends LogtoolContext
 implements Analyzer
 {
-  static private Logger log = Logger.getLogger(ImbalanceStats.class.getName());
-
-  private DomainObjectReader dor;
+  static private Logger log = LogManager.getLogger(ImbalanceStats.class.getName());
 
   private BrokerRepo brokerRepo;
 
@@ -121,7 +119,6 @@ implements Analyzer
   @Override
   public void setup ()
   {
-    dor = (DomainObjectReader) getBean("reader");
     brokerRepo = (BrokerRepo) getBean("brokerRepo");
     btx = new HashMap<Broker, BalancingTransaction>();
     ttx = new HashMap<Broker, ArrayList<TariffTransaction>>();
@@ -129,12 +126,6 @@ implements Analyzer
     dailyBrokerImbalance = new HashMap<Broker, ArrayList<Pair<Double, Double>>>();
     dailyTraffic = new HashMap<Broker, ArrayList<ArrayList<TariffTransaction>>>();
 
-    dor.registerNewObjectListener(new TimeslotUpdateHandler(),
-                                  TimeslotUpdate.class);
-    dor.registerNewObjectListener(new BalancingTxHandler(),
-                                  BalancingTransaction.class);
-    dor.registerNewObjectListener(new TariffTxHandler(),
-                                  TariffTransaction.class);
     try {
       data = new PrintWriter(new File(dataFilename));
       dataInit = false;
@@ -294,50 +285,35 @@ implements Analyzer
 
   // -------------------------------
   // catch BalancingTransactions
-  class BalancingTxHandler implements NewObjectListener
+  public void handleMessage (BalancingTransaction tx)
   {
-    @Override
-    public void handleNewObject (Object thing)
-    {
-      BalancingTransaction tx = (BalancingTransaction)thing;
-      btx.put(tx.getBroker(), tx);
-    } 
-  }
+    btx.put(tx.getBroker(), tx);
+  } 
 
   // -----------------------------------
   // catch TariffTransactions
-  class TariffTxHandler implements NewObjectListener
+  public void handleMessage (TariffTransaction tx)
   {
-    @Override
-    public void handleNewObject (Object thing)
-    {
-      TariffTransaction tx = (TariffTransaction)thing;
-      // only include consumption
-      if (tx.getTxType() == TariffTransaction.Type.CONSUME) {
-            //|| tx.getTxType() == TariffTransaction.Type.PRODUCE) {
-        ArrayList<TariffTransaction> txList = ttx.get(tx.getBroker());
-        if (null == txList) {
-          txList = new ArrayList<TariffTransaction>();
-          ttx.put(tx.getBroker(), txList);
-        }
-        txList.add(tx);
+    // only include consumption
+    if (tx.getTxType() == TariffTransaction.Type.CONSUME) {
+      //|| tx.getTxType() == TariffTransaction.Type.PRODUCE) {
+      ArrayList<TariffTransaction> txList = ttx.get(tx.getBroker());
+      if (null == txList) {
+        txList = new ArrayList<TariffTransaction>();
+        ttx.put(tx.getBroker(), txList);
       }
-    } 
+      txList.add(tx);
+    }
   }
 
   // -----------------------------------
   // catch TimeslotUpdate events
-  class TimeslotUpdateHandler implements NewObjectListener
+  public void handleMessage (TimeslotUpdate ts)
   {
-    @Override
-    public void handleNewObject (Object thing)
-    {
-      if (null == competition)
-        competition = Competition.currentCompetition();
-      TimeslotUpdate ts = (TimeslotUpdate) thing;
-      tsIndex = ts.getFirstEnabled()
-          - competition.getDeactivateTimeslotsAhead();
-      summarizeTimeslot();
-    }
+    if (null == competition)
+      competition = Competition.currentCompetition();
+    tsIndex = ts.getFirstEnabled()
+        - competition.getDeactivateTimeslotsAhead();
+    summarizeTimeslot();
   }
 }

@@ -23,6 +23,7 @@ def stateLogIter (tournamentDir, sessionType='sim'):
         return (extractLog(name, sessionType, 'state')
                 for name in path.glob('game-*-{}.tar.gz'.format(sessionType)))
         
+
 def traceLogIter (tournamentDir, sessionType='sim'):
     '''
     Returns a generator of trace logs extracted from a directory
@@ -30,7 +31,7 @@ def traceLogIter (tournamentDir, sessionType='sim'):
     '''
     path = Path(tournamentDir)
     return (extractLog(name, sessionType, 'trace')
-            for name in path.glob('game-*-{}-logs.tar.gz'.format(sessionType)))
+            for name in path.glob('game-*-{}*.tar.gz'.format(sessionType)))
 
 
 def extractLog (gameLog, sessionType, logType):
@@ -55,10 +56,6 @@ def extractLog (gameLog, sessionType, logType):
                            'powertac-{}-2016_finals_{}.{}'.format(sessionType, str(int(gameId)-654), logType))
             
         if not logPath.exists():
-            #if os.name == "posix":
-            #    p1 = subprocess.Popen(['tar', 'xzf', path.name], shell = True, cwd = str(path.parent))
-            #    p1.wait()
-            #elif os.name == "nt":
             pathdir = path.parent
             path = path.as_posix()
             pathdir = pathdir.as_posix()

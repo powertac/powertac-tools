@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015 by John E. Collins
+ * Copyright (c) 2015, 2017 by John E. Collins
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,7 +31,9 @@ import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+
 import org.powertac.balancemkt.ChargeInfo;
 import org.powertac.balancemkt.SettlementContext;
 import org.powertac.balancemkt.StaticSettlementProcessor;
@@ -45,10 +47,7 @@ import org.powertac.common.msg.EconomicControlEvent;
 import org.powertac.common.msg.TimeslotUpdate;
 import org.powertac.common.repo.BrokerRepo;
 import org.powertac.common.repo.TariffRepo;
-import org.powertac.common.spring.SpringApplicationContext;
 import org.powertac.logtool.LogtoolContext;
-import org.powertac.logtool.common.DomainObjectReader;
-import org.powertac.logtool.common.NewObjectListener;
 import org.powertac.logtool.ifc.Analyzer;
 
 /**
@@ -80,9 +79,8 @@ public class BrokerBalancingActions
 extends LogtoolContext
 implements Analyzer
 {
-  static private Logger log = Logger.getLogger(BrokerBalancingActions.class.getName());
+  static private Logger log = LogManager.getLogger(BrokerBalancingActions.class.getName());
 
-  private DomainObjectReader dor;
   private BrokerRepo brokerRepo;
   private TariffRepo tariffRepo;
   private CapacityControlSvc capacityControl;
@@ -178,9 +176,8 @@ implements Analyzer
   @Override
   public void setup ()
   {
-    dor = (DomainObjectReader) SpringApplicationContext.getBean("reader");
-    brokerRepo = (BrokerRepo) SpringApplicationContext.getBean("brokerRepo");
-    tariffRepo = (TariffRepo) SpringApplicationContext.getBean("tariffRepo");
+    brokerRepo = (BrokerRepo) getBean("brokerRepo");
+    tariffRepo = (TariffRepo) getBean("tariffRepo");
 
     capacityControl = new CapacityControlSvc();
     settlementContext = new LocalSettlementContext();
@@ -190,11 +187,6 @@ implements Analyzer
         new HashMap<TariffSpecification, BalancingOrder>();
     balancingOrdersDown =
         new HashMap<TariffSpecification, BalancingOrder>();
-
-    dor.registerNewObjectListener(new TimeslotUpdateHandler(),
-                                  TimeslotUpdate.class);
-    dor.registerNewObjectListener(new BalancingOrderHandler(),
-                                  BalancingOrder.class);
 
     try {
       trace = new BufferedReader (new FileReader(traceFilename));
@@ -298,7 +290,6 @@ implements Analyzer
                   bd.getBalanceChargeP2());
     }
     data.format("%n");
-    return;
   }
 
   private List<ChargeInfo> generateBrokerData (TraceData traceData)
@@ -474,6 +465,37 @@ implements Analyzer
     return collector;
   }
 
+  // -----------------------------------
+  // catch TimeslotUpdate events
+  public void handleMessage (TimeslotUpdate msg)
+  {
+    timeslot = msg.getFirstEnabled() - 1;
+    if (timeslot <= 361) {
+      // nothing interesting in the first two timeslots
+      return;
+    }
+    log.info("Timeslot " + timeslot);
+    summarizeTimeslot();
+    //initTimeslotData();
+  }
+
+  // -------------------------------
+  // catch BalancingOrders
+  public void handleMessage (BalancingOrder order)
+  {
+    log.info("New balancing order for spec " + order.getTariffId()
+             + ", price=" + order.getPrice());
+    TariffSpecification spec =
+        tariffRepo.findSpecificationById(order.getTariffId());
+    if (order.getExerciseRatio() > 0.0) {
+      // up-regulation
+      balancingOrdersUp.put(spec, order);
+    }
+    else {
+      balancingOrdersDown.put(spec, order);
+    }
+  }
+
   class TraceData
   {
     int timeslot = 0;
@@ -586,47 +608,6 @@ implements Analyzer
       }
       return result.toString();
     }
-  }
-
-  // -----------------------------------
-  // catch TimeslotUpdate events
-  class TimeslotUpdateHandler implements NewObjectListener
-  {
-    @Override
-    public void handleNewObject (Object thing)
-    {
-      TimeslotUpdate msg = (TimeslotUpdate) thing;
-      timeslot = msg.getFirstEnabled() - 1;
-      if (timeslot <= 361) {
-        // nothing interesting in the first two timeslots
-        return;
-      }
-      log.info("Timeslot " + timeslot);
-      summarizeTimeslot();
-      //initTimeslotData();
-    }
-  }
-
-  // -------------------------------
-  // catch BalancingOrders
-  class BalancingOrderHandler implements NewObjectListener
-  {
-    @Override
-    public void handleNewObject (Object thing)
-    {
-      BalancingOrder order = (BalancingOrder) thing;
-      log.info("New balancing order for spec " + order.getTariffId()
-               + ", price=" + order.getPrice());
-      TariffSpecification spec =
-          tariffRepo.findSpecificationById(order.getTariffId());
-      if (order.getExerciseRatio() > 0.0) {
-        // up-regulation
-        balancingOrdersUp.put(spec, order);
-      }
-      else {
-        balancingOrdersDown.put(spec, order);
-      }
-    } 
   }
 
   // ------------------------------------

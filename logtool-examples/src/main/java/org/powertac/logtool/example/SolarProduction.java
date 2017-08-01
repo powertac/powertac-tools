@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015 by John E. Collins
+ * Copyright (c) 2015, 2017 by John E. Collins
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,10 +18,11 @@ package org.powertac.logtool.example;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;
-import java.util.ArrayList;
 import java.util.HashSet;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+
 import org.joda.time.DateTimeFieldType;
 import org.joda.time.Instant;
 import org.powertac.common.CustomerInfo;
@@ -29,10 +30,7 @@ import org.powertac.common.TariffTransaction;
 import org.powertac.common.enumerations.PowerType;
 import org.powertac.common.msg.TimeslotUpdate;
 import org.powertac.common.repo.CustomerRepo;
-import org.powertac.common.spring.SpringApplicationContext;
 import org.powertac.logtool.LogtoolContext;
-import org.powertac.logtool.common.DomainObjectReader;
-import org.powertac.logtool.common.NewObjectListener;
 import org.powertac.logtool.ifc.Analyzer;
 
 /**
@@ -47,9 +45,7 @@ public class SolarProduction
 extends LogtoolContext
 implements Analyzer
 {
-  static private Logger log = Logger.getLogger(SolarProduction.class.getName());
-
-  private DomainObjectReader dor;
+  static private Logger log = LogManager.getLogger(SolarProduction.class.getName());
 
   // access to customer info
   private CustomerRepo customerRepo;
@@ -103,12 +99,6 @@ implements Analyzer
   @Override
   public void setup ()
   {
-    dor = (DomainObjectReader) SpringApplicationContext.getBean("reader");
-
-    dor.registerNewObjectListener(new TimeslotUpdateHandler(),
-                                  TimeslotUpdate.class);
-    dor.registerNewObjectListener(new TariffTxHandler(),
-                                  TariffTransaction.class);
     customerRepo = (CustomerRepo)this.getBean("customerRepo");
     solarCustomers = new HashSet<CustomerInfo>();
     try {
@@ -156,31 +146,20 @@ implements Analyzer
 
   // -----------------------------------
   // catch TimeslotUpdate events
-  class TimeslotUpdateHandler implements NewObjectListener
+  public void handleMessage (TimeslotUpdate msg)
   {
-    @Override
-    public void handleNewObject (Object thing)
-    {
-      TimeslotUpdate msg = (TimeslotUpdate) thing;
-      timeslot = msg.getFirstEnabled() - 1;
-      log.info("Timeslot " + timeslot);
-      summarizeTimeslot(msg.getPostedTime());
-    }
+    timeslot = msg.getFirstEnabled() - 1;
+    log.info("Timeslot " + timeslot);
+    summarizeTimeslot(msg.getPostedTime());
   }
 
   // -----------------------------------
   // catch TariffTransactions
-  class TariffTxHandler implements NewObjectListener
+  public void handleMessage (TariffTransaction tx)
   {
-    @Override
-    public void handleNewObject (Object thing)
-    {
-      TariffTransaction tx = (TariffTransaction)thing;
-
-      if (tx.getTxType() == TariffTransaction.Type.PRODUCE
-          && solarCustomers.contains(tx.getCustomerInfo())) {
-        produced += tx.getKWh() / 1000.0;
-      }
-    } 
+    if (tx.getTxType() == TariffTransaction.Type.PRODUCE
+        && solarCustomers.contains(tx.getCustomerInfo())) {
+      produced += tx.getKWh() / 1000.0;
+    }
   }
 }

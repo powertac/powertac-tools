@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014 by the original author
+ * Copyright (c) 2014, 2017 by the original author
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,9 @@ import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 import java.util.TreeMap;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+
 import org.joda.time.Instant;
 import org.powertac.common.TimeService;
 import org.powertac.common.WeatherForecast;
@@ -44,11 +46,7 @@ public class WindStats
 extends LogtoolContext
 implements Analyzer
 {
-  static private Logger log = Logger.getLogger(WindStats.class.getName());
-
-  private DomainObjectReader dor;
-  
-  private TimeService timeService;
+  static private Logger log = LogManager.getLogger(WindStats.class.getName());
 
   // data output file
   private PrintWriter data = null;
@@ -96,15 +94,6 @@ implements Analyzer
   public void setup ()
   {
     wind = new TreeMap<Integer, Double[]>();
-    dor = (DomainObjectReader) SpringApplicationContext.getBean("reader");
-    timeService = (TimeService) SpringApplicationContext.getBean("timeService");
-
-    dor.registerNewObjectListener(new WeatherReportHandler(),
-                                  WeatherReport.class);
-    dor.registerNewObjectListener(new WeatherForecastHandler(),
-                                  WeatherForecast.class);
-    //dor.registerNewObjectListener(new WeatherPredictionHandler(),
-    //                              WeatherForecastPrediction.class);
     try {
       data = new PrintWriter(new File(dataFilename));
     }
@@ -136,50 +125,39 @@ implements Analyzer
 
   // -------------------------------
   // catch WeatherReports
-  class WeatherReportHandler implements NewObjectListener
+  public void handleMessage (WeatherReport rpt)
   {
-    @Override
-    public void handleNewObject (Object thing)
-    {
-      if (firstIndex < 0) return;
-      WeatherReport rpt = (WeatherReport)thing;
-      int tsIndex = rpt.getTimeslotIndex();
-      Double[] speeds = wind.get(tsIndex);
-      if (null == speeds) {
-        System.out.println("Cannot find array for ts " + tsIndex);
-      }
-      else {
-        speeds[horizon] = rpt.getWindSpeed();
-      }
+    if (firstIndex < 0) return;
+    int tsIndex = rpt.getTimeslotIndex();
+    Double[] speeds = wind.get(tsIndex);
+    if (null == speeds) {
+      System.out.println("Cannot find array for ts " + tsIndex);
+    }
+    else {
+      speeds[horizon] = rpt.getWindSpeed();
     }
   }
 
-
   // -------------------------------
   // catch WeatherReports
-  class WeatherForecastHandler implements NewObjectListener
+  public void handleMessage (WeatherForecast fcst)
   {
-    @Override
-    public void handleNewObject (Object thing)
-    {
-      WeatherForecast fcst = (WeatherForecast)thing;
-      int ts = fcst.getTimeslotIndex();
-      if (firstIndex < 0) {
-        // initialization
-        horizon = fcst.getPredictions().size();
-        System.out.println("Horizon = " + horizon);
-        firstIndex = ts + horizon;
-      }
-      for (WeatherForecastPrediction wfp : fcst.getPredictions()) {
-        int index = ts + wfp.getForecastTime();
-        if (index >= firstIndex) {
-          Double[] speeds = wind.get(index);
-          if (null == speeds) {
-            speeds = new Double[horizon + 1];
-            wind.put(index, speeds);
-          }
-          speeds[horizon - wfp.getForecastTime()] = wfp.getWindSpeed();
+    int ts = fcst.getTimeslotIndex();
+    if (firstIndex < 0) {
+      // initialization
+      horizon = fcst.getPredictions().size();
+      System.out.println("Horizon = " + horizon);
+      firstIndex = ts + horizon;
+    }
+    for (WeatherForecastPrediction wfp : fcst.getPredictions()) {
+      int index = ts + wfp.getForecastTime();
+      if (index >= firstIndex) {
+        Double[] speeds = wind.get(index);
+        if (null == speeds) {
+          speeds = new Double[horizon + 1];
+          wind.put(index, speeds);
         }
+        speeds[horizon - wfp.getForecastTime()] = wfp.getWindSpeed();
       }
     }
   }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012 by the original author
+ * Copyright (c) 2012, 2017 by John E. Collins
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,9 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+
 import org.joda.time.Instant;
 import org.powertac.common.TimeService;
 import org.powertac.common.WeatherReport;
@@ -38,10 +40,8 @@ public class WeatherStats
 extends LogtoolContext
 implements Analyzer
 {
-  static private Logger log = Logger.getLogger(WeatherStats.class.getName());
+  static private Logger log = LogManager.getLogger(WeatherStats.class.getName());
 
-  private DomainObjectReader dor;
-  
   private TimeService timeService;
 
   // data output file
@@ -84,11 +84,7 @@ implements Analyzer
   @Override
   public void setup ()
   {
-    dor = (DomainObjectReader) SpringApplicationContext.getBean("reader");
     timeService = (TimeService) SpringApplicationContext.getBean("timeService");
-    
-    dor.registerNewObjectListener(new WeatherReportHandler(),
-                                  WeatherReport.class);
     try {
       data = new PrintWriter(new File(dataFilename));
     }
@@ -104,25 +100,19 @@ implements Analyzer
   public void report ()
   {
     data.close();
-    return;
   }
 
   // -------------------------------
   // catch WeatherReports
-  class WeatherReportHandler implements NewObjectListener
+  Instant currentDay = null;
+
+  public void handleMessage (WeatherReport rpt)
   {
-    Instant currentDay = null;
-    
-    @Override
-    public void handleNewObject (Object thing)
-    {
-      WeatherReport rpt = (WeatherReport)thing;
-      Instant midnight = timeService.getCurrentTime();
-      if (null == currentDay || midnight.isAfter(currentDay)) {
-        currentDay = midnight;
-        data.format("%n%s%n", currentDay.toString());        
-      }
-      data.format("%.2f ", rpt.getTemperature());
-    } 
-  }
+    Instant midnight = timeService.getCurrentTime();
+    if (null == currentDay || midnight.isAfter(currentDay)) {
+      currentDay = midnight;
+      data.format("%n%s%n", currentDay.toString());        
+    }
+    data.format("%.2f ", rpt.getTemperature());
+  } 
 }

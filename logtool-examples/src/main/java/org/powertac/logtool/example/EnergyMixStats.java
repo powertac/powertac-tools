@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015 by John E. Collins
+ * Copyright (c) 2015, 2017 by John E. Collins
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,9 @@ import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 import java.util.HashMap;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+
 import org.powertac.common.BalancingTransaction;
 import org.powertac.common.Competition;
 import org.powertac.common.MarketTransaction;
@@ -72,9 +74,7 @@ public class EnergyMixStats
 extends LogtoolContext
 implements Analyzer
 {
-  static private Logger log = Logger.getLogger(EnergyMixStats.class.getName());
-
-  private DomainObjectReader dor;
+  static private Logger log = LogManager.getLogger(EnergyMixStats.class.getName());
 
   //private BrokerRepo brokerRepo;
 
@@ -153,20 +153,7 @@ implements Analyzer
   @Override
   public void setup ()
   {
-    dor = (DomainObjectReader) SpringApplicationContext.getBean("reader");
-    //brokerRepo = (BrokerRepo) SpringApplicationContext.getBean("brokerRepo");
     mktTxSummary = new HashMap<Integer, QtyCost>();
-
-    dor.registerNewObjectListener(new TimeslotUpdateHandler(),
-                                  TimeslotUpdate.class);
-    dor.registerNewObjectListener(new MarketTxHandler(),
-                                  MarketTransaction.class);
-    dor.registerNewObjectListener(new TariffTxHandler(),
-                                  TariffTransaction.class);
-    dor.registerNewObjectListener(new BalanceRptHandler(),
-                                  BalanceReport.class);
-    dor.registerNewObjectListener(new BalancingTxHandler(),
-                                  BalancingTransaction.class);
     try {
       data = new PrintWriter(new File(dataFilename));
     }
@@ -278,136 +265,111 @@ implements Analyzer
 
   // -----------------------------------
   // catch TimeslotUpdate events
-  class TimeslotUpdateHandler implements NewObjectListener
+  public void handleMessage (TimeslotUpdate msg)
   {
-
-    @Override
-    public void handleNewObject (Object thing)
-    {
-      TimeslotUpdate msg = (TimeslotUpdate) thing;
-      timeslot = msg.getFirstEnabled() - 1;
-      log.info("Timeslot " + timeslot);
-      summarizeTimeslot();
-      initTimeslotData();
-      state = stateId.MktTx;
-      log.info("Set state to " + state);
-    }
+    timeslot = msg.getFirstEnabled() - 1;
+    log.info("Timeslot " + timeslot);
+    summarizeTimeslot();
+    initTimeslotData();
+    state = stateId.MktTx;
+    log.info("Set state to " + state);
   }
 
   // -----------------------------------
   // catch MarketTransactions
-  class MarketTxHandler implements NewObjectListener
+  public void handleMessage (MarketTransaction tx)
   {
-    @Override
-    public void handleNewObject (Object thing)
-    {
-      if (stateId.MktTx != state) {
-        log.error("incorrect state for mkt tx " + state);
-        return;
+    if (stateId.MktTx != state) {
+      log.error("incorrect state for mkt tx " + state);
+      return;
+    }
+    if (!tx.getBroker().isWholesale()) {
+      int ts = tx.getTimeslot().getSerialNumber();
+      QtyCost data = mktTxSummary.get(ts);
+      if (null == data) {
+        data = new QtyCost();
+        mktTxSummary.put(ts, data);
       }
-      MarketTransaction tx = (MarketTransaction) thing;
-      if (!tx.getBroker().isWholesale()) {
-        int ts = tx.getTimeslot().getSerialNumber();
-        QtyCost data = mktTxSummary.get(ts);
-        if (null == data) {
-          data = new QtyCost();
-          mktTxSummary.put(ts, data);
-        }
-        data.addQty(tx.getMWh());
-        data.addCost(tx.getPrice() * Math.abs(tx.getMWh()));
-      }
+      data.addQty(tx.getMWh());
+      data.addCost(tx.getPrice() * Math.abs(tx.getMWh()));
     }
   }
 
   // -----------------------------------
   // catch TariffTransactions
-  class TariffTxHandler implements NewObjectListener
+  public void handleMessage (TariffTransaction tx)
   {
-    @Override
-    public void handleNewObject (Object thing)
-    {
-      TariffTransaction tx = (TariffTransaction)thing;
-      if (state == stateId.MktTx) {
-        // state transition
-        state = stateId.CustTx;
-        log.info("Set state to " + state);
-      }
+    if (state == stateId.MktTx) {
+      // state transition
+      state = stateId.CustTx;
+      log.info("Set state to " + state);
+    }
 
-      if (state == stateId.CustTx) {
-        // customer transactions
-        if (tx.getTxType() == TariffTransaction.Type.CONSUME) {
-          used.addQty(tx.getKWh() / 1000.0);
-          used.addCost(tx.getCharge());
-        }
-        else if (tx.getTxType() == TariffTransaction.Type.PRODUCE) {
-          produced.addQty(tx.getKWh() / 1000.0);
-          produced.addCost(tx.getCharge());
-        }
+    if (state == stateId.CustTx) {
+      // customer transactions
+      if (tx.getTxType() == TariffTransaction.Type.CONSUME) {
+        used.addQty(tx.getKWh() / 1000.0);
+        used.addCost(tx.getCharge());
       }
-      else if (state == stateId.RegTx) {
-        // regulating transactions
-        if (tx.getTxType() == TariffTransaction.Type.PRODUCE) {
-          upRegulation.addQty(tx.getKWh() / 1000.0);
-          upRegulation.addCost(tx.getCharge());
-        }
-        else if (tx.getTxType() == TariffTransaction.Type.CONSUME) {
-          downRegulation.addQty(tx.getKWh() / 1000.0);
-          downRegulation.addCost(tx.getCharge());
-        }
+      else if (tx.getTxType() == TariffTransaction.Type.PRODUCE) {
+        produced.addQty(tx.getKWh() / 1000.0);
+        produced.addCost(tx.getCharge());
       }
-      else if (tx.getTxType() == TariffTransaction.Type.CONSUME
-          || tx.getTxType() == TariffTransaction.Type.PRODUCE) {
-        // should not happen
-        log.error("Bad state for tariff tx " + tx.getId() + ": " + state);
+    }
+    else if (state == stateId.RegTx) {
+      // regulating transactions
+      if (tx.getTxType() == TariffTransaction.Type.PRODUCE) {
+        upRegulation.addQty(tx.getKWh() / 1000.0);
+        upRegulation.addCost(tx.getCharge());
       }
-    } 
-  }
+      else if (tx.getTxType() == TariffTransaction.Type.CONSUME) {
+        downRegulation.addQty(tx.getKWh() / 1000.0);
+        downRegulation.addCost(tx.getCharge());
+      }
+    }
+    else if (tx.getTxType() == TariffTransaction.Type.CONSUME
+        || tx.getTxType() == TariffTransaction.Type.PRODUCE) {
+      // should not happen
+      log.error("Bad state for tariff tx " + tx.getId() + ": " + state);
+    }
+  } 
 
   // -----------------------------------
-  // catch the BalancingReport -- n
+  // catch the BalanceReport
   // Note that this exists in logs starting with server release 1.2.
   // For earlier logs, we depend on BalancingTransaction to detect the
   // state change.
-  class BalanceRptHandler implements NewObjectListener
+  public void handleMessage (BalanceReport rpt)
   {
-    @Override
-    public void handleNewObject (Object thing)
-    {
-      if (state != stateId.CustTx) {
-        log.error("Bad state for balance report: " + state);
-      }
-      else {
-        state = stateId.RegTx;
-        log.info("Set state to " + state);
-      }
+    if (state != stateId.CustTx) {
+      log.error("Bad state for balance report: " + state);
+    }
+    else {
+      state = stateId.RegTx;
+      log.info("Set state to " + state);
     }
   }
 
   // -------------------------------
   // catch BalancingTransactions
-  class BalancingTxHandler implements NewObjectListener
+  public void handleMessage (BalancingTransaction tx)
   {
-    @Override
-    public void handleNewObject (Object thing)
-    {
-      BalancingTransaction tx = (BalancingTransaction) thing;
-      if (state == stateId.CustTx) {
-        // Should only happen in logs prior to server release 1.2
-        state = stateId.RegTx;
-        log.info("Set state (pre-1.2) to " + state);
-      }
-      if (state == stateId.RegTx) {
-        state = stateId.BalTx;
-        log.info("Set state to " + state);
-      }
-      if (state == stateId.BalTx) {
-        balanceEnergy.addQty(tx.getKWh() / 1000.0);
-        balanceEnergy.addCost(tx.getCharge());
-      }
-      else {
-        log.warn("Bad state for Bal TX " + tx.getId() + ": " + state);
-      }
-    } 
+    if (state == stateId.CustTx) {
+      // Should only happen in logs prior to server release 1.2
+      state = stateId.RegTx;
+      log.info("Set state (pre-1.2) to " + state);
+    }
+    if (state == stateId.RegTx) {
+      state = stateId.BalTx;
+      log.info("Set state to " + state);
+    }
+    if (state == stateId.BalTx) {
+      balanceEnergy.addQty(tx.getKWh() / 1000.0);
+      balanceEnergy.addCost(tx.getCharge());
+    }
+    else {
+      log.warn("Bad state for Bal TX " + tx.getId() + ": " + state);
+    }
   }
 
   class QtyCost
