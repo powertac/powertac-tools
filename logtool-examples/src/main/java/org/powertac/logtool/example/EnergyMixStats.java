@@ -105,7 +105,7 @@ implements Analyzer
   private boolean dataInit = false;
 
   // gameId data
-  private int gameid = 0;
+  private String game = "";
   private boolean printGameid = false;
 
   /**
@@ -193,15 +193,13 @@ implements Analyzer
       // first time through nothing to but print header
       if (printGameid) {
         // first column is integer game ID
-        data.print("game-id, ");
-        String game = Competition.currentCompetition().getName();
-        // game is of the form "game-n"
-        // We force an integer in order to get an exception if it's not an int
-        gameid = Integer.parseInt(game.substring(5));
+        data.print("game, ");
+        game = Competition.currentCompetition().getName();
       }
       data.println("slot, import, cost, cons, revenue, prod, cost, "
                    + "up-reg, cost, down-reg, revenue, imbalance, cost");
       initSummaryData();
+      dataInit = true;
       return;
     }
     // skip initial timeslot(s) without data
@@ -212,7 +210,7 @@ implements Analyzer
 
     // optionally print game id
     if (printGameid) {
-      data.print(String.valueOf(gameid) + ", ");
+      data.print(game + ", ");
     }
     // print timeslot index
     data.print(timeslot + ", ");
@@ -260,7 +258,6 @@ implements Analyzer
     upRegulation = new QtyCost();
     downRegulation = new QtyCost();
     balanceEnergy = new QtyCost();
-    dataInit = true;
   }
 
   // -----------------------------------
