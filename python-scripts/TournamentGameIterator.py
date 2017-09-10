@@ -13,6 +13,8 @@ tournament spreadsheet.
 
 import re, os, tarfile, subprocess
 import urllib.request
+import requests, csv
+import io
 from pathlib import Path
 
 def logIter (tournamentURL, tournamentDir):
@@ -24,6 +26,19 @@ def logIter (tournamentURL, tournamentDir):
     games = open(os.path.join(tournamentDir, "games.txt"), 'r')
     return (extractLog(tournamentURL, game.rstrip(), tournamentDir)
             for game in games)
+
+def csvIter (tournamentCsvUrl):
+    '''
+    Reads the tournament summary spreadsheet, extracts game URLs, downloads
+    the games if necessary.
+    '''
+    content = urllib.request.urlopen(tournamentCsvUrl)
+    gameList = io.StringIO(content.read().decode('utf-8'))    
+    csvReader = csv.DictReader(gameList, delimiter=';')
+    #print(csvReader.fieldnames)
+    for row in csvReader:
+        print(row['gameId'], row['logUrl'])
+
 
 def extractLog (url, game, dirPath):
     '''

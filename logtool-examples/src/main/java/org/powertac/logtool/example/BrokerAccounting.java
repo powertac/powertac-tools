@@ -68,7 +68,7 @@ import org.powertac.logtool.ifc.Analyzer;
  * followed by the broker's CashPosition. Line continues with the next broker
  * unless the per-broker option is given.
  * 
- * Usage: BrokerMktPrices [--per-broker] state-log-filename output-data-filename
+ * Usage: BrokerAccounting [--per-broker] state-log-filename output-data-filename
  * 
  * @author John Collins
  */
