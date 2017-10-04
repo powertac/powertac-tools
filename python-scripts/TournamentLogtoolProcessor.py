@@ -57,7 +57,14 @@ def dataFileIter (tournamentCsvUrl, tournamentDir, extractorClass, dataPrefix,
                         extractorOptions, logtoolDir, force=force)
             for log in ti.csvIter(tournamentCsvUrl, tournamentDir))
 
-def main():
+def iterate (url, tournamentDir, extractorClass, dataPrefix, options):
+    for data in dataFileIter(url, tournamentDir,
+                             extractorClass, dataPrefix,
+                             options):
+        print(data)
+    
+
+def main ():
     '''
     Command-line invocation
     '''
@@ -70,10 +77,7 @@ def main():
                 options = options + ' ' + sys.argv[index]
             #print('options', options)
 
-        for data in dataFileIter(sys.argv[1], sys.argv[2],
-                                 sys.argv[3], sys.argv[4],
-                                 options):
-            print(data)
+        iterate(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], options)
 
 if __name__ == "__main__":
     main()
