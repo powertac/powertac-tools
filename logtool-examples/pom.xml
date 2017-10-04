@@ -17,6 +17,12 @@
   simulation server</description>
   <packaging>jar</packaging>
 
+  <properties>
+    <johnzon.version>1.1.0</johnzon.version>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <exec.args></exec.args>
+  </properties>
+
   <dependencies>
 
     <dependency>
@@ -34,22 +40,15 @@
     <dependency>
       <groupId>net.sf.jopt-simple</groupId>
       <artifactId>jopt-simple</artifactId>
-      <version>${jopt-simple.version}</version>
-    </dependency>
+      </dependency>
 
-    <!-- This doesn't seem to be needed?
     <dependency>
-      <groupId>org.springframework</groupId>
-      <artifactId>spring-test</artifactId>
+      <groupId>org.apache.johnzon</groupId>
+      <artifactId>johnzon-core</artifactId>
+      <version>${johnzon.version}</version>
     </dependency>
-    -->
 
   </dependencies>
-
-  <properties>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <exec.args></exec.args>
-  </properties>
 
   <!-- <plugins>
     <plugin>

@@ -188,7 +188,9 @@ implements Analyzer
 
   private void dumpData (Broker broker)
   {
-    output.format(",%s",broker.getUsername());
+    if (perBroker) {
+      output.format(",%s",broker.getUsername());
+    }
     BrokerData bd = brokerData.get(broker);
     // TariffTransaction, state and usage
     output.format(",%.4f,%.4f,%.4f,%.4f",
@@ -234,7 +236,6 @@ implements Analyzer
   public void handleMessage (SimStart start)
   {
     System.out.println("SimStart");
-    firstLine();
     started = true;
   }
 
@@ -387,10 +388,13 @@ implements Analyzer
   public void handleMessage (TimeslotUpdate tu)
   {
     if (started)
-      if (skip == 0)
+      if (skip == 0) {
         summarizeTimeslot();
-      else
+      }
+      else {
         skip -= 1;
+        firstLine();
+      }
     timeslot = tu.getFirstEnabled() -
         Competition.currentCompetition().getDeactivateTimeslotsAhead();
   }

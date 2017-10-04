@@ -1,13 +1,11 @@
 #!/usr/bin/python3
 '''
 Extracts sim and boot records from compressed game files downloaded from
-a tournament archive. Call logIter(url, dir) where url is the archive and
+a tournament archive. Call logIter(url, dir) where url is the archive
+descriptor (a csv file) and
 dir is the directory that is to contain the (compressed) game logs.
 This returns an iterator over directory names within the target directory.
-Initially this directory must exist, and must contain a txt file containing
-the game numbers for all the games to be downloaded. As an enhancement, the
-list of games could be obtained from the url as the first column of the
-tournament spreadsheet.
+Initially this directory must exist.
 '''
 # Uses Python 3.4 or later
 
@@ -27,45 +25,58 @@ def logIter (tournamentURL, tournamentDir):
     return (extractLog(tournamentURL, game.rstrip(), tournamentDir)
             for game in games)
 
-def csvIter (tournamentCsvUrl):
+def csvIter (tournamentCsvUrl, dirPath):
     '''
-    Reads the tournament summary spreadsheet, extracts game URLs, downloads
-    the games if necessary.
+    Reads the tournament summary spreadsheet, extracts game IDs and URLs,
+    downloads and unpacks the game logs if necessary.
+    Each iteration returns the dict produced by extractLogs()
+    for the given game.
     '''
     content = urllib.request.urlopen(tournamentCsvUrl)
     gameList = io.StringIO(content.read().decode('utf-8'))    
-    csvReader = csv.DictReader(gameList, delimiter=';')
-    #print(csvReader.fieldnames)
-    for row in csvReader:
-        print(row['gameId'], row['logUrl'])
+    csvReader = csv.DictReader(gameList, delimiter=',')
+    return(extractLogs(row['logUrl'], row['gameId'],
+                       re.search('/([^/]+)$', row['logUrl']).group(1),
+                       dirPath)
+           for row in csvReader)
 
 
-def extractLog (url, game, dirPath):
+def extractLogs (url, game, tarname, dirPath):
     '''
     Extracts logs from compressed game log file, if not already extracted.
-    Returns the name of a directory inside tournamentDir that contains
-    state and trace logs.
+    Returns the name of a directory inside tournamentDir that contains two
+    subdirectories, 'log' and 'boot-log'. Inside each of those directories are
+    the state and trace logs. Returns the paths to the boot and sim logs as
+    a dict of the form {'gameId': id, 'boot':bootlog, 'sim':simlog}.
     '''
     # make sure we have the bundle locally
     currentDir = os.getcwd()
     os.chdir(dirPath)
-    gameBundlePath = 'game-'+game+'-sim.tar.gz'
-    if not os.path.exists(gameBundlePath):
-        #print('retrieve '+url+'/game-'+game+'-sim.tar.gz')
-        g = urllib.request.urlopen(url+'/game-'+game+'-sim.tar.gz')
-        with open(gameBundlePath, 'wb') as f:
-            f.write(g.read())
 
     # extract the bundle into the directory if needed
     gameDirPath = game
     if not os.path.isdir(gameDirPath):
-        tar = tarfile.open(gameBundlePath)
+        os.mkdir(gameDirPath)
+        os.chdir(gameDirPath)
+        g = urllib.request.urlopen(url)
+        with open(tarname, 'wb') as f:
+            f.write(g.read())
+        
+        tar = tarfile.open(tarname)
         tar.extractall()
         tar.close
-        os.rename('log', game)
-        bootPath = game+'/game-'+game+'-boot.xml'
-        g = urllib.request.urlopen(url+'/game-'+game+'-boot.xml')
-        with open(bootPath, 'wb') as f:
-            f.write(g.read())
     os.chdir(currentDir)
-    return game
+
+    # find the actual paths to the boot and sim logs
+    bootDir = Path(dirPath, gameDirPath, 'boot-log')
+    bootfile = ''
+    simDir = Path(dirPath, gameDirPath, 'log')
+    simfile = ''
+    for file in bootDir.glob('*.state'):
+        if (not str(file).endswith('init.state')):
+            bootfile = file
+    for file in simDir.glob('*.state'):
+        if (not str(file).endswith('init.state')):
+            simfile = file
+    
+    return {'gameId': game, 'boot': str(bootfile), 'sim':str(simfile)}
