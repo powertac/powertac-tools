@@ -51,6 +51,7 @@ implements Analyzer
   static private Logger log = LogManager.getLogger(TariffMktShare.class.getName());
 
   private BrokerRepo brokerRepo;
+  private int skip = 0;
 
   // list of TariffTransactions for current timeslot
   private ArrayList<TariffTransaction> ttx;
@@ -92,6 +93,7 @@ implements Analyzer
     }
     dataFilename = args[1];
     super.cli(args[0], this);
+    skip = 1;
   }
 
   /**
@@ -182,6 +184,9 @@ implements Analyzer
   // catch TimeslotUpdate events
   public void handleMessage (TimeslotUpdate tu)
   {
-    summarizeTimeslot(tu);
+    if (skip > 0)
+      skip -= 1;
+    else
+      summarizeTimeslot(tu);
   }
 }
