@@ -188,9 +188,7 @@ implements Analyzer
 
   private void dumpData (Broker broker)
   {
-    //if (perBroker) {
-      output.format(",%s",broker.getUsername());
-    //}
+    output.format(",%s",broker.getUsername());
     BrokerData bd = brokerData.get(broker);
     // TariffTransaction, state and usage
     output.format(",%.4f,%.4f,%.4f,%.4f",
