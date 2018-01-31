@@ -115,7 +115,7 @@ implements Analyzer
   // data output file
   private PrintWriter data = null;
   private String dataFilename;
-  //private boolean dataInit = true;
+  private boolean printHeader = false;
 
   /**
    * Constructor does nothing. Call setup() before reading a file to
@@ -213,6 +213,18 @@ implements Analyzer
     data.close();
   }
 
+  // Called once to print column headers
+  private void printHeader ()
+  {
+    printHeader = true;
+    data.print("ts;pPlus;pMinus;totalImbalance;rmBase;rmActual");
+    for (Broker broker : brokerRepo.findRetailBrokers()) {
+      data.format(";%s;netLoad;regOffered;regUsed;baseCost;p1;p2",
+                  broker.getUsername());
+    }
+    data.println();
+  }
+
   // Called on timeslotUpdate. Note that there are two of these before
   // the first "real" timeslot. Incoming tariffs are published at the end of
   // the second timeslot (the third call to this method), and so customer
@@ -281,7 +293,7 @@ implements Analyzer
       }
       // compute per-broker rm-base cost
       double brokerBase = -rmBase * bd.getNetLoadKWh() / imbalance;
-      data.format(";%s;(%.4f;%.4f;%.4f;%.4f;%.4f;%.4f)", bd.getBrokerName(),
+      data.format(";%s;%.4f;%.4f;%.4f;%.4f;%.4f;%.4f", bd.getBrokerName(),
                   bd.getNetLoadKWh(),
                   offeredReg,
                   bd.getCurtailment(),
@@ -294,7 +306,7 @@ implements Analyzer
 
   private List<ChargeInfo> generateBrokerData (TraceData traceData)
   {
-    HashMap<Broker, ChargeInfo> chargeInfoMap = new HashMap<Broker, ChargeInfo>();
+    HashMap<Broker, ChargeInfo> chargeInfoMap = new HashMap<>();
 
     // code stolen from BalancingMarketService.balanceTimeslot()
     // create the ChargeInfo instances for each broker
@@ -317,7 +329,10 @@ implements Analyzer
     // gather up the list of ChargeInfo instances and settle
     log.info("balancing prices: pPlus=" + traceData.getPPlus()
              + ", pMinus=" + traceData.getPMinus());
-    List<ChargeInfo> brokerData = new ArrayList<ChargeInfo>(chargeInfoMap.values());
+    List<ChargeInfo> brokerData = new ArrayList<>();
+    for (Broker broker : brokerRepo.findRetailBrokers()) {
+      brokerData.add(chargeInfoMap.get(broker));
+    }
     return brokerData;
   }
 
@@ -469,6 +484,8 @@ implements Analyzer
   // catch TimeslotUpdate events
   public void handleMessage (TimeslotUpdate msg)
   {
+    if (!printHeader)
+      printHeader();
     timeslot = msg.getFirstEnabled() - 1;
     if (timeslot <= 361) {
       // nothing interesting in the first two timeslots
