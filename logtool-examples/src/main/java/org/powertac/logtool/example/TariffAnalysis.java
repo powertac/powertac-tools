@@ -150,6 +150,7 @@ implements Analyzer
   private void firstLine ()
   {
     if (narrative) {
+      output.format("Game %s\n", Competition.currentCompetition().getName());
       //output.println("Tariff fields: ID, PowerType, minDuration, signup, withdraw, periodic, rates");
     }
     else {
@@ -194,14 +195,14 @@ implements Analyzer
   {
     if (timeslot > lastTimeslot) {
       lastTimeslot = timeslot;
-      output.format("Timeslot %d\n", timeslot);
+      output.format("--- Timeslot %d\n", timeslot);
     }
   }
 
   // Dump collected data to output. Format depends on perBroker setting.
   private void summarizeTimeslot (int timeslot)
   {
-    output.println("Tariff summary ts " + timeslot);
+    output.format("--- Tariff summary ts %d:\n", timeslot);
     for (Broker broker: brokers) {
       List<TariffData> dataList = tariffs.get(broker);
       for (TariffData data: dataList) {
@@ -220,7 +221,7 @@ implements Analyzer
   {
     if (newTariffs.size() > 0) {
       dumpTimeslotMaybe ();
-      output.println("New tariffs:");
+      output.println("    New tariffs:");
       for (Tariff tariff: newTariffs)
         dumpTariff(tariff);
       newTariffs.clear();
@@ -487,22 +488,22 @@ implements Analyzer
 
     void printSummary (int timeslot)
     {
-      output.format("%s tariff %d", tariff.getBroker().getUsername(), tariff.getId());
+      output.format("%s %d:", tariff.getBroker().getUsername(), tariff.getId());
       //if (!tariff.isActive())
       //  output.print(" (inactive)");
       if (fees != 0.0)
-        output.format(", fees=%.3f", fees);
-      output.format(", energy=%.3f, earnings=%.3f", energy, energyEarnings);
+        output.format(" fees=%.3f", fees);
+      output.format(" energy=%.3f earnings=%.3f", energy, energyEarnings);
       if (balanceEnergy != 0.0 || balanceEarnings != 0.0)
-        output.format(", regulation=%.3f, reg earnings=%.3f",
+        output.format(" regulation=%.3f reg earnings=%.3f",
                       balanceEnergy, balanceEarnings);
       if (subChange > 0)
-        output.format(", %d new subscribers", subChange);
+        output.format(" %d new subscribers", subChange);
       else if (subChange < 0)
-        output.format(", %d withdrawals", subChange);
-      output.format(", subscribers=%d", subscribers);
+        output.format(" %d withdrawals", subChange);
+      output.format(" subscribers=%d", subscribers);
       if (staticEarnings != 0.0)
-        output.format(", customer fees=%.3f", staticEarnings);
+        output.format(" customer fees=%.3f", staticEarnings);
       output.println();
     }
 
