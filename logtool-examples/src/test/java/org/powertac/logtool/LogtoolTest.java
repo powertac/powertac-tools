@@ -16,8 +16,8 @@
 package org.powertac.logtool;
 
 import org.joda.time.Instant;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 /**
  * Test cases for the sample broker implementation.
@@ -28,7 +28,7 @@ public class LogtoolTest
 {
   private Instant baseTime;
 
-  @Before
+  @BeforeEach
   public void setUp () throws Exception
   {
   }

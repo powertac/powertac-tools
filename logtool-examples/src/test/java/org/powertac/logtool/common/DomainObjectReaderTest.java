@@ -1,11 +1,8 @@
 package org.powertac.logtool.common;
 
-import static org.junit.Assert.*;
-
 import java.util.List;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.powertac.common.Broker;
 import org.powertac.common.Competition;
 import org.powertac.common.DistributionTransaction;
@@ -22,12 +19,12 @@ public class DomainObjectReaderTest
 {
   private DomainObjectReader dor;
   
-  @Before
+  @BeforeEach
   public void setUp () throws Exception
   {
   }
 
-  @Test
+  @org.junit.jupiter.api.Test
   public void testSomething ()
   {
   }
