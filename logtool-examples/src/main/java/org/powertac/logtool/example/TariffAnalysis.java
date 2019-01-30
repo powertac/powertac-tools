@@ -84,6 +84,7 @@ implements Analyzer
   private HashMap<Broker, List<TariffData>> tariffs;
   private HashMap<Long, TariffData> tariffData;
   private List<Tariff> newTariffs;
+  private List<Tariff> revokes;
   private List<Long> activeTariffs;
   
   // TariffData indexed by Timeslot and by tariffID
@@ -138,6 +139,7 @@ implements Analyzer
     tariffs = new HashMap<>();
     tariffData = new HashMap<>();
     newTariffs = new ArrayList<>();
+    revokes = new ArrayList<>();
     activeTariffs = new ArrayList<>();
     try {
       output = new PrintWriter(new File(dataFilename));
@@ -189,16 +191,6 @@ implements Analyzer
     output.close();
   }
 
-  // Dumps the timeslot number in case there's anything happening here
-  private int lastTimeslot = -1;
-  private void dumpTimeslotMaybe ()
-  {
-    if (timeslot > lastTimeslot) {
-      lastTimeslot = timeslot;
-      output.format("--- Timeslot %d\n", timeslot);
-    }
-  }
-
   // Dump collected data to output. Format depends on perBroker setting.
   private void summarizeTimeslot (int timeslot)
   {
@@ -220,11 +212,25 @@ implements Analyzer
   private void dumpNewTariffs ()
   {
     if (newTariffs.size() > 0) {
-      dumpTimeslotMaybe ();
-      output.println("    New tariffs:");
+      //dumpTimeslotMaybe ();
+      output.format("--- New tariffs ts %d:\n", timeslot);
       for (Tariff tariff: newTariffs)
         dumpTariff(tariff);
       newTariffs.clear();
+    }
+    if (revokes.size() > 0) {
+      output.format("--- Revoked tariffs ts %d:\n", timeslot);
+      for (Tariff tariff: revokes) {
+        output.format(" %s:%d",
+                      tariff.getBroker().getUsername(),
+                      tariff.getSpecId());
+        Tariff sup = tariff.getIsSupersededBy();
+        if (null != sup) {
+          output.format(" replaced by %d", sup.getSpecId());
+        }
+      }
+      output.println();
+      revokes.clear();
     }
   }
 
@@ -289,13 +295,13 @@ implements Analyzer
     if (tariff.isTimeOfUse()) {
       output.print(" tou=[");
       Instant now = timeService.getCurrentTime();
-      Instant midnight = now.minus(timeService.getHourOfDay() * timeService.HOUR);
+      Instant midnight = now.minus(timeService.getHourOfDay() * TimeService.HOUR);
       double[] prices = new double[24];
       TreeMap<Integer, Double> hrPrices = new TreeMap<>();
       double lastPrice = 0.0;
       for (int hr = 0; hr < prices.length; hr++) {
         prices[hr] =
-                tariff.getUsageCharge(midnight.plus(hr * timeService.HOUR), 1.0, 1.0);
+                tariff.getUsageCharge(midnight.plus(hr * TimeService.HOUR), 1.0, 1.0);
         if (hr == 0) {
           lastPrice = prices[0];
           hrPrices.put(0, prices[0]);
@@ -374,8 +380,13 @@ implements Analyzer
     long tid = tx.getTariffSpec().getId();
     TariffData td = tariffData.get(tid);
     double amount = tx.getCharge();
-    if (tx.getTxType() == Type.PUBLISH || tx.getTxType() == Type.REVOKE) {
+    if (tx.getTxType() == Type.PUBLISH) {
       td.addFees(amount);
+      return;
+    }
+    if (tx.getTxType() == Type.REVOKE) {
+      td.addFees(amount);
+      revokes.add(tariffRepo.findTariffById(tid));
       return;
     }
     // separate state from produce/consume tx
@@ -384,14 +395,18 @@ implements Analyzer
       td.addEnergy(tx.getKWh(), amount, tx.isRegulation());
       return;
     }
-    if (tx.getTxType() == Type.SIGNUP || tx.getTxType() == Type.WITHDRAW) {
+    if (tx.getTxType() == Type.SIGNUP) {
       td.subscriptionChange(tx.getCustomerCount());
       td.addStaticEarnings(amount);
+      return;
     }
-    else {
-      // PERIODIC, REFUND
+    if (tx.getTxType() == Type.WITHDRAW) {
+      td.subscriptionChange(-tx.getCustomerCount());
       td.addStaticEarnings(amount);
+      return;
     }
+    // PERIODIC, REFUND
+    td.addStaticEarnings(amount);
   }
 
   // -----------------------------------
@@ -498,25 +513,25 @@ implements Analyzer
         output.format(" regulation=%.3f reg earnings=%.3f",
                       balanceEnergy, balanceEarnings);
       if (subChange > 0)
-        output.format(" %d new subscribers", subChange);
+        output.format(" signups=%d", subChange);
       else if (subChange < 0)
-        output.format(" %d withdrawals", subChange);
+        output.format(" withdrawals=%d", -subChange);
       output.format(" subscribers=%d", subscribers);
       if (staticEarnings != 0.0)
-        output.format(" customer fees=%.3f", staticEarnings);
+        output.format(" cust fees=%.3f", staticEarnings);
       output.println();
     }
 
     void printFinalSummary ()
     {
-      output.format("tariff %d", tariff.getId());
-      output.format(", fees=%.3f", totalFees);
-      output.format(", energy=%.3f, earnings=%.3f",
+      output.format("%d %s", tariff.getId(), tariff.getPowerType().toString());
+      output.format(" fees=%.3f", totalFees);
+      output.format(" energy=%.3f, earnings=%.3f",
                     totalEnergy, totalEnergyEarnings);
-      output.format(", regulation=%.3f, reg earnings=%.3f",
+      output.format(" regulation=%.3f, reg earnings=%.3f",
                     totalBalanceEnergy, totalBalanceEarnings);
-      output.format(", final subscribers=%d", subscribers);
-      output.format(", customer fees=%.3f", totalStaticEarnings);
+      output.format(" subscribers=%d", subscribers);
+      output.format(" cust fees=%.3f", totalStaticEarnings);
       output.println();
     }
   }
