@@ -162,13 +162,14 @@ implements Analyzer
     if (brokers.isEmpty()) {
       brokers = brokerRepo.findRetailBrokers();
       for (Broker broker: brokers) {
+        if (!tariffs.containsKey(broker))
         tariffs.put(broker, new ArrayList<>());
       }
       Broker db = brokerRepo.findByUsername("default broker");
       if (null == db) {
         log.error("Could not find default broker");
       }
-      else {
+      else if (!tariffs.containsKey(db)) {
         tariffs.put(db, new ArrayList<>());
       }
     }    
@@ -197,6 +198,8 @@ implements Analyzer
     output.format("--- Tariff summary ts %d:\n", timeslot);
     for (Broker broker: brokers) {
       List<TariffData> dataList = tariffs.get(broker);
+      if (dataList.isEmpty())
+        log.error("Empty data list for {}", broker.getUsername());
       for (TariffData data: dataList) {
         if (activeTariffs.contains(data.tariff.getId())) {
           data.printSummary(timeslot);
@@ -206,7 +209,7 @@ implements Analyzer
     activeTariffs.clear();
   }
 
-  // Dumps all the tariffs published in the current timeslot. We to this
+  // Dumps all the tariffs published in the current timeslot. We do this
   // all at once because Rates are not always in the TariffSpecification
   // instances when they show up in the data stream
   private void dumpNewTariffs ()
@@ -363,11 +366,10 @@ implements Analyzer
     TariffData data = new TariffData(tariff);
     Broker broker = spec.getBroker();
     if (!tariffs.containsKey(broker)) {
-      log.error("Tariff map does not contain broker {}", broker.getUsername());
+      tariffs.put(broker, new ArrayList<>());
+      //log.error("Tariff map does not contain broker {}", broker.getUsername());
     }
-    else {
-      tariffs.get(broker).add(data);
-    }
+    tariffs.get(broker).add(data);
     tariffData.put(tid, data);
     newTariffs.add(tariff);
   }
