@@ -54,7 +54,8 @@ def dataFileIter (tournamentCsvUrl, tournamentDir, extractorClass, dataPrefix,
     '''
     return (extractData(log[logtype], log['gameId'],
                         extractorClass, dataPrefix,
-                        extractorOptions, logtoolDir, force=force)
+                        extractorOptions, logtoolDir,
+                        dataDir = tournamentDir + '/data', force=force)
             for log in ti.csvIter(tournamentCsvUrl, tournamentDir))
 
 def iterate (url, tournamentDir, extractorClass, dataPrefix, options):

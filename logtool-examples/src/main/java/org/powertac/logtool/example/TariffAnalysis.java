@@ -18,10 +18,16 @@ package org.powertac.logtool.example;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;
+import java.time.DayOfWeek;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
+import java.util.stream.IntStream;
 
 import org.apache.logging.log4j.Logger;
 import org.joda.time.Instant;
@@ -51,7 +57,7 @@ import org.powertac.logtool.ifc.Analyzer;
  * 
  * Without the --narrative option, output is in three parts. Part 1 is a list of
  * tariffs in the order they appear in the log. For each tariff, fields are:
- *   ID, PowerType, Broker, intro TS, minDuration, signup, withdraw, periodic pmt,
+ *   intro TS, Broker, ID, PowerType, minDuration, signup, withdraw, periodic pmt,
  *       rate-info, up-reg price, down-reg price.
  * where rate-info is a single number for a fixed rate, an array for daily TOU
  * rate, a dict for a tiered rate.
@@ -63,7 +69,7 @@ import org.powertac.logtool.ifc.Analyzer;
  * second section. The subscription-count is given as the mean value over the entire
  * game, the rest are sums.
  * 
- * Usage: TariffAnalysis state-log-filename output-data-filename
+ * Usage: TariffAnalysis [options] state-log-file output-data-file
  * 
  * @author John Collins
  */
@@ -81,11 +87,13 @@ implements Analyzer
 
   // Data
   private List<Broker> brokers;
-  private HashMap<Broker, List<TariffData>> tariffs;
+  private HashMap<Broker, List<TariffData>> brokerTariff;
+  private TreeMap<Integer, HashMap<Broker, List<TariffActivity>>> subscriptionActivity; 
   private HashMap<Long, TariffData> tariffData;
   private List<Tariff> newTariffs;
   private List<Tariff> revokes;
-  private List<Long> activeTariffs;
+  private Set<Long> activeTariffs;
+  private Set<Long> activeSubs;
   
   // TariffData indexed by Timeslot and by tariffID
   //private HashMap<Integer, HashMap<Tariff, TariffData>> tariffData;
@@ -93,7 +101,7 @@ implements Analyzer
   private boolean narrative = false;
   private boolean started = false;
   //private boolean firstTx = false;
-  private int timeslot = 0;
+  private int timeslot = 360;
   private int summaryInterval = 24;
   private PrintWriter output = null;
   private String dataFilename = "tariff-analysis.data";
@@ -136,11 +144,13 @@ implements Analyzer
     tariffRepo = (TariffRepo) getBean("tariffRepo");
     timeService = (TimeService) getBean("timeService");
     brokers = new ArrayList<>();
-    tariffs = new HashMap<>();
+    brokerTariff = new HashMap<>();
     tariffData = new HashMap<>();
+    subscriptionActivity = new TreeMap<>();
     newTariffs = new ArrayList<>();
     revokes = new ArrayList<>();
-    activeTariffs = new ArrayList<>();
+    activeTariffs = new TreeSet<>();
+    activeSubs = new TreeSet<>();
     try {
       output = new PrintWriter(new File(dataFilename));
     }
@@ -155,22 +165,18 @@ implements Analyzer
       output.format("Game %s\n", Competition.currentCompetition().getName());
       //output.println("Tariff fields: ID, PowerType, minDuration, signup, withdraw, periodic, rates");
     }
-    else {
-      output.println("Id, PwrType, Broker, intro, minDur, signup, withdraw, periodic, " + 
-                     "rate-info, up-reg, dwn-reg");
-    }
     if (brokers.isEmpty()) {
       brokers = brokerRepo.findRetailBrokers();
       for (Broker broker: brokers) {
-        if (!tariffs.containsKey(broker))
-        tariffs.put(broker, new ArrayList<>());
+        if (!brokerTariff.containsKey(broker))
+        brokerTariff.put(broker, new ArrayList<>());
       }
       Broker db = brokerRepo.findByUsername("default broker");
       if (null == db) {
         log.error("Could not find default broker");
       }
-      else if (!tariffs.containsKey(db)) {
-        tariffs.put(db, new ArrayList<>());
+      else if (!brokerTariff.containsKey(db)) {
+        brokerTariff.put(db, new ArrayList<>());
       }
     }    
   }
@@ -181,32 +187,89 @@ implements Analyzer
   @Override
   public void report ()
   {
-    output.println("-------------\nGame totals\n------------");
-    for (Broker broker: brokers) {
-      output.println(broker.getUsername());
-      List<TariffData> dataList = tariffs.get(broker);
-      for (TariffData data: dataList) {
-        data.printFinalSummary();
+    if (narrative) {
+      output.println("-------------\nGame totals\n------------");
+      for (Broker broker: brokers) {
+        output.println(broker.getUsername());
+        List<TariffData> dataList = brokerTariff.get(broker);
+        for (TariffData data: dataList) {
+          data.printFinalSummary();
+        }
+      }
+    }
+    else {
+      output.println("------------\nSubscription changes\n------------");
+      // broker name header
+      output.print("                ");
+      for (Broker broker: brokers) {
+        output.format("%-42s", broker.getUsername());
+      }
+      output.println();
+      // iterate through timeslots
+      for (int ts: subscriptionActivity.keySet()) {
+        HashMap<Broker, List<TariffActivity>> tsActivity =
+                subscriptionActivity.get(ts);
+        // count rows needed
+        int rows = 0;
+        for (Broker broker: brokers) {
+          if (tsActivity.containsKey(broker)) {
+            rows = Math.max(rows, tsActivity.get(broker).size());
+          }
+        }
+        if (rows == 0)
+          continue;
+        IntStream.range(0, rows).forEach
+        (r -> {
+          if (r == 0)
+            output.format("%4d", ts);
+          else
+            output.print("    ");
+          for (Broker broker: brokers) {
+            if (!tsActivity.containsKey(broker)) {
+              output.format("%42s", " ");
+              continue;
+            }
+            List<TariffActivity> acts = tsActivity.get(broker);
+            if (acts.size() <= r) {
+              output.format("%42s", "");
+              continue;
+            }
+            TariffActivity ta = acts.get(r);
+            // [subscription count, tariff-payment, rate-payment, regulation-payment]
+            output.format("  %9d [%6d %10.3f %10.3f]",
+                          ta.getTariffid(),
+                          ta.getSubCount(), ta.getTariffPmt(),
+                          ta.getRatePmt());
+          }
+          output.println();
+        });
+        output.println();
       }
     }
     output.close();
   }
 
   // Dump collected data to output. Format depends on perBroker setting.
-  private void summarizeTimeslot (int timeslot)
+  private void narrativeSummary (int timeslot)
   {
-    output.format("--- Tariff summary ts %d:\n", timeslot);
-    for (Broker broker: brokers) {
-      List<TariffData> dataList = tariffs.get(broker);
-      if (dataList.isEmpty())
-        log.error("Empty data list for {}", broker.getUsername());
-      for (TariffData data: dataList) {
-        if (activeTariffs.contains(data.tariff.getId())) {
-          data.printSummary(timeslot);
+    if (narrative) {
+      output.format("--- Tariff summary ts %d, %s:\n", timeslot,
+                    timeService.getCurrentDateTime().toString("MM-dd-hh"));
+      for (Broker broker: brokers) {
+        List<TariffData> dataList = brokerTariff.get(broker);
+        if (dataList.isEmpty())
+          log.error("Empty data list for {}", broker.getUsername());
+        for (TariffData data: dataList) {
+          if (activeTariffs.contains(data.tariff.getId())) {
+            data.printSummary(timeslot);
+          }
         }
       }
+      activeTariffs.clear();
     }
-    activeTariffs.clear();
+    else {
+      // not narrative
+    }
   }
 
   // Dumps all the tariffs published in the current timeslot. We do this
@@ -214,27 +277,76 @@ implements Analyzer
   // instances when they show up in the data stream
   private void dumpNewTariffs ()
   {
-    if (newTariffs.size() > 0) {
-      //dumpTimeslotMaybe ();
-      output.format("--- New tariffs ts %d:\n", timeslot);
-      for (Tariff tariff: newTariffs)
-        dumpTariff(tariff);
-      newTariffs.clear();
-    }
-    if (revokes.size() > 0) {
-      output.format("--- Revoked tariffs ts %d:\n", timeslot);
-      for (Tariff tariff: revokes) {
-        output.format(" %s:%d",
-                      tariff.getBroker().getUsername(),
-                      tariff.getSpecId());
-        Tariff sup = tariff.getIsSupersededBy();
-        if (null != sup) {
-          output.format(" replaced by %d", sup.getSpecId());
-        }
+    if (narrative) {
+      // get here at summary intervals
+      if (newTariffs.size() > 0) {
+        //dumpTimeslotMaybe ();
+        output.format("--- New tariffs ts %d:\n", timeslot);
+        for (Tariff tariff: newTariffs)
+          dumpTariff(tariff);
+        newTariffs.clear();
       }
-      output.println();
-      revokes.clear();
+      if (revokes.size() > 0) {
+        output.format("--- Revoked tariffs ts %d:\n", timeslot);
+        for (Tariff tariff: revokes) {
+          output.format(" %s:%d",
+                        tariff.getBroker().getUsername(),
+                        tariff.getSpecId());
+          Tariff sup = tariff.getIsSupersededBy();
+          if (null != sup) {
+            output.format(" replaced by %d", sup.getSpecId());
+          }
+          output.println();
+        }
+        revokes.clear();
+      }
     }
+    else {
+      recordSubscriptionChanges();
+      if (newTariffs.size() == 0 && revokes.size() == 0)
+        return;
+      // not narrative mode, get here every ts
+      output.format("--- ts %d\n", timeslot);
+      if (newTariffs.size() > 0) {
+        for (Tariff tariff: newTariffs) {
+          output.print("offer ");
+          dumpTariff(tariff);
+        }
+        newTariffs.clear();
+      }
+      if (revokes.size() > 0) {
+        for (Tariff tariff: revokes) {
+          output.format("kill %d %s %d %s",
+                        timeslot, tariff.getBroker().getUsername(),
+                        tariff.getSpecId(), tariff.getPowerType().toString());
+          Tariff sup = tariff.getIsSupersededBy();
+          if (null != sup) {
+            output.format(" replaced by %d", sup.getSpecId());
+          }
+          output.println();
+        }
+        revokes.clear();
+      }
+    }
+  }
+
+  private void recordSubscriptionChanges ()
+  {
+    if (!subscriptionActivity.containsKey(timeslot))
+      subscriptionActivity.put(timeslot, new HashMap<>());
+    HashMap<Broker, List<TariffActivity>> timeslotActivity =
+            subscriptionActivity.get(timeslot);
+    for (long tid: activeSubs) {
+      // find the TariffData for this tariff and make a TariffActivity snapshot of it
+      TariffData td = tariffData.get(tid);
+      TariffActivity ta = new TariffActivity(td);
+      Broker broker = td.getBroker();
+      if (!timeslotActivity.containsKey(broker))
+        timeslotActivity.put(broker, new ArrayList<>());
+      List<TariffActivity> activities = timeslotActivity.get(broker);
+      activities.add(ta);
+    }
+    activeSubs.clear();
   }
 
   //   Broker, ID, PowerType, intro TS, minDuration, signup, withdraw, periodic pmt,
@@ -286,41 +398,80 @@ implements Analyzer
       output.print(" Tiered rates");
       return;
     }
-    if (tariff.isWeekly()) {
-      output.print(" Weekly rates");
-      return;
-    }
     if (tariff.isVariableRate()) {
       output.format(" Variable: mean=%.3f, realized=%.3f",
                     tariff.getMeanConsumptionPrice(), tariff.getRealizedPrice());
       return;
     }
-    if (tariff.isTimeOfUse()) {
+    if (tariff.isWeekly()) {
       output.print(" tou=[");
+      //start at midnight next Monday
       Instant now = timeService.getCurrentTime();
       Instant midnight = now.minus(timeService.getHourOfDay() * TimeService.HOUR);
-      double[] prices = new double[24];
-      TreeMap<Integer, Double> hrPrices = new TreeMap<>();
-      double lastPrice = 0.0;
-      for (int hr = 0; hr < prices.length; hr++) {
-        prices[hr] =
-                tariff.getUsageCharge(midnight.plus(hr * TimeService.HOUR), 1.0, 1.0);
-        if (hr == 0) {
-          lastPrice = prices[0];
-          hrPrices.put(0, prices[0]);
+      int day = midnight.toDateTime().getDayOfWeek();
+      Instant start = midnight.plus((7 - day) * TimeService.DAY);
+      TreeMap<Integer, TreeMap<Integer, Double>> dayPrices = new TreeMap<>();
+      int lastDay = 0;
+      for (int d = 0; d < 7; d++) {
+        TreeMap<Integer, Double> dp =
+                gatherHourlyPrices(tariff, start.plus(d * TimeService.DAY));
+        if (d == 0) {
+          dayPrices.put(d, dp);
         }
-        else if (prices[hr] != lastPrice) {
-          lastPrice = prices[hr];
-          hrPrices.put(hr, prices[hr]);
+        else if (!dp.equals(dayPrices.get(lastDay))) {
+          // prices change on day d
+          dayPrices.put(d, dp);
+          lastDay = d;
         }
       }
-      String delim = "";
-      for (int hr: hrPrices.keySet()) {
-        output.format("%s%d:%.3f", delim, hr, hrPrices.get(hr));
-        delim = " ";
-      }      
+      String delimiter = "";
+      for (int d : dayPrices.keySet()) {
+        output.format("%s%s", delimiter, DayOfWeek.of(d + 1));
+        printHourlyPrices(dayPrices.get(d));
+        delimiter = " ";
+      }
       output.print("]");
+      return;
     }
+    if (tariff.isTimeOfUse()) {
+      output.print(" tou=");
+      Instant now = timeService.getCurrentTime();
+      Instant midnight = now.minus(timeService.getHourOfDay() * TimeService.HOUR);
+      TreeMap<Integer, Double> hrPrices = gatherHourlyPrices(tariff, midnight);
+      printHourlyPrices(hrPrices);
+    }
+  }
+
+  private TreeMap<Integer, Double> gatherHourlyPrices (Tariff tariff,
+                                                       Instant midnight)
+  {
+    double[] prices = new double[24];
+    TreeMap<Integer, Double> hrPrices = new TreeMap<>();
+    double lastPrice = 0.0;
+    for (int hr = 0; hr < prices.length; hr++) {
+      prices[hr] =
+              tariff.getUsageCharge(midnight.plus(hr * TimeService.HOUR), 1.0, 1.0);
+      if (hr == 0) {
+        lastPrice = prices[0];
+        hrPrices.put(0, prices[0]);
+      }
+      else if (prices[hr] != lastPrice) {
+        lastPrice = prices[hr];
+        hrPrices.put(hr, prices[hr]);
+      }
+    }
+    return hrPrices;
+  }
+
+  private void printHourlyPrices (TreeMap<Integer, Double> hrPrices)
+  {
+    output.print("[");
+    String delim = "";
+    for (int hr: hrPrices.keySet()) {
+      output.format("%s%d:%.3f", delim, hr, hrPrices.get(hr));
+      delim = " ";
+    }      
+    output.print("]");
   }
 
   // -----------------------------------
@@ -356,20 +507,18 @@ implements Analyzer
     else {
       tariff = new Tariff(spec);
       tariff.init();
-      tariffRepo.addTariff(tariff);
     }
 
-    if (spec.hasRegulationRate()) {
-      output.format("---Tariff %s has regulation rates\n", spec.getId());
-    }
+    //if (spec.hasRegulationRate()) {
+    //  output.format("---Tariff %s has regulation rates\n", spec.getId());
+    //}
     
     TariffData data = new TariffData(tariff);
     Broker broker = spec.getBroker();
-    if (!tariffs.containsKey(broker)) {
-      tariffs.put(broker, new ArrayList<>());
-      //log.error("Tariff map does not contain broker {}", broker.getUsername());
+    if (!brokerTariff.containsKey(broker)) {
+      brokerTariff.put(broker, new ArrayList<>());
     }
-    tariffs.get(broker).add(data);
+    brokerTariff.get(broker).add(data);
     tariffData.put(tid, data);
     newTariffs.add(tariff);
   }
@@ -400,11 +549,13 @@ implements Analyzer
     if (tx.getTxType() == Type.SIGNUP) {
       td.subscriptionChange(tx.getCustomerCount());
       td.addStaticEarnings(amount);
+      activeSubs.add(tid);
       return;
     }
     if (tx.getTxType() == Type.WITHDRAW) {
       td.subscriptionChange(-tx.getCustomerCount());
       td.addStaticEarnings(amount);
+      activeSubs.add(tid);
       return;
     }
     // PERIODIC, REFUND
@@ -423,7 +574,7 @@ implements Analyzer
         dumpNewTariffs();
         if (timeslot % summaryInterval == 0) {
           //System.out.println("Summarize ts " + timeslot);
-          summarizeTimeslot(timeslot);
+          narrativeSummary(timeslot);
           for (TariffData data: tariffData.values()) {
             data.clear();
           }
@@ -458,6 +609,16 @@ implements Analyzer
       this.tariff = tariff;  
     }
 
+    Broker getBroker ()
+    {
+      return tariff.getBroker();
+    }
+
+    long getTariffId ()
+    {
+      return tariff.getSpecId();
+    }
+
     void addFees (double value)
     {
       fees += value;
@@ -480,16 +641,36 @@ implements Analyzer
       }
     }
 
+    double getRateEarnings ()
+    {
+      return totalEnergyEarnings;
+    }
+
+    double getRegulationEarnings ()
+    {
+      return totalBalanceEarnings;
+    }
+
     void addStaticEarnings (double value)
     {
       staticEarnings += value;
       totalStaticEarnings += value;
     }
 
+    double getStaticEarnings ()
+    {
+      return totalStaticEarnings + totalFees;
+    }
+
     void subscriptionChange (int count)
     {
       subChange += count;
       subscribers += count;
+    }
+
+    int getSubscribers ()
+    {
+      return subscribers;
     }
 
     void clear ()
@@ -535,6 +716,68 @@ implements Analyzer
       output.format(" subscribers=%d", subscribers);
       output.format(" cust fees=%.3f", totalStaticEarnings);
       output.println();
+    }
+  }
+
+  class TariffActivity
+  {
+    int ts;
+    long tariffId;
+    int subCount;
+    double tariffPmt;
+    double ratePmt;
+    double regPmt;
+
+    TariffActivity (long tid, int subs, double tp, double rp, double rgp)
+    {
+      super();
+      ts = timeslot;
+      tariffId = tid;
+      subCount = subs;
+      tariffPmt = tp;
+      ratePmt = rp;
+      regPmt = rgp;
+    }
+
+    TariffActivity (TariffData td)
+    {
+      super();
+      ts = timeslot;
+      tariffId = td.getTariffId();
+      subCount = td.getSubscribers();
+      tariffPmt = td.getStaticEarnings();
+      ratePmt = td.getRateEarnings();
+      regPmt = td.getRegulationEarnings();
+    }
+
+    double getTimeslot ()
+    {
+      return ts;
+    }
+
+    long getTariffid ()
+    {
+      return tariffId;
+    }
+
+    int getSubCount ()
+    {
+      return subCount;
+    }
+
+    double getTariffPmt ()
+    {
+      return tariffPmt;
+    }
+
+    double getRatePmt ()
+    {
+      return ratePmt;
+    }
+
+    double getRegPmt ()
+    {
+      return regPmt;
     }
   }
 }
