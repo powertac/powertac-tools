@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 '''
 Reads a set of data files containing 2D arrays of market clearing data,

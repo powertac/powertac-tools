@@ -8,12 +8,12 @@ To compile all examples, use maven as
 
 After compiling, all of these examples are run as
 
-`mvn exec:exec -Dexec.args="class-name input-file output-file"`
+`mvn exec:exec -Dexec.args="class-name [options] input-file output-file"`
 
 where classname is the fully-qualified name of the main class you want to run. In other words, if you want to run the TariffMktShare analyzer, the classname would be `org.powertac.logtool.example.TariffMktShare`.
 
-If you don't want to unpack that compressed tar file containing the state log, you can pipe it from tar into your analyzer, as
+If you don't want to unpack the compressed tar file containing the state log, you can pipe it from tar into your analyzer, as
 
 `tar xzfO game-3-sim-logs.tar.gz log/powertac-sim-3.state | mvn exec:exec -Dexec.args="class-name - output-file"`
 
-However, some analyzers do not seem to find the end-of-file when run in this way. Your mileage may vary.
+Unfortunately, some analyzers do not seem to find the end-of-file when run in this way. Your mileage may vary.

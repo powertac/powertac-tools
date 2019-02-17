@@ -10,6 +10,7 @@ from pathlib import Path
 processEnv = {'JAVA_HOME': os.environ.get('JAVA_HOME'),
               'Path' : os.environ.get('PATH') }
 
+
 def extractData (statefileName, gameId, extractorClass,
                  dataPrefix, extractorOptions,
                  logtoolDir, dataDir='data', force=False):
@@ -43,6 +44,7 @@ def extractData (statefileName, gameId, extractorClass,
             
     return {'gameId': gameId, 'path': str(dataPath)}
 
+
 def dataFileIter (tournamentCsvUrl, tournamentDir, extractorClass, dataPrefix,
                   extractorOptions='', logtype='sim',
                   logtoolDir = "../logtool-examples/",
@@ -57,6 +59,7 @@ def dataFileIter (tournamentCsvUrl, tournamentDir, extractorClass, dataPrefix,
                         extractorOptions, logtoolDir,
                         dataDir = tournamentDir + '/data', force=force)
             for log in ti.csvIter(tournamentCsvUrl, tournamentDir))
+
 
 def iterate (url, tournamentDir, extractorClass, dataPrefix, options):
     for data in dataFileIter(url, tournamentDir,
