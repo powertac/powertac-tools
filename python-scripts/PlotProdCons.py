@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 '''
 Reads a set of data files representing hourly demand over a set of games.
 Lines in each file are formatted as
@@ -14,7 +14,7 @@ modules in dir ../logtool-examples must have been built (using mvn clean test).
 
 Usage: Evaluate or import this module using your Python IDE,
 then call collectData(tournament) to suck in all the data.
-The tournament arg is a subdirectory of ../../games
+The tournament arg is typically a subdirectory of ../../games
 containing the compressed game logs of the tournament. If necessary,
 this will unpack the game logs and run the logtoolClass processor over each
 state log to generate the raw data. Once this completes (can take several hours
@@ -59,14 +59,17 @@ def plotMeans (dataInterval='Daily',
     plt.show()
 
 def plotContours (contours, dataInterval='Daily',
-                  dataType='net-demand', showTitle=False):
+                  dataType='net-demand',
+                  tournamentYear = '2018',
+                  ylimit=0,
+                  showTitle=False):
     '''
     Extracts data points from the raw data at the given contour intervals.
     The contours arg is a list of probabilities 0.0 < contour <= 1.0.
     For example, contours=[0.05, 0.5, 0.95] plots the 5%, 50%, and 95% contours.
     '''
     if gameData.dataType != dataType:
-        gameData.reset(dataType)
+        gameData.reset(dataType, tournamentYear)
     data = gameData.dataArray(dataInterval)
     rows = []
     for c in data:
@@ -88,12 +91,15 @@ def plotContours (contours, dataInterval='Daily',
     x = range(len(data))
     plt.grid(True)
     if showTitle:
-        plt.title('{} {} contours'.format(dataInterval, gameData.dataType))
-    plt.ylim((0, 110))
+        plt.title('{} {} contours {}'.format(dataInterval,
+                                             gameData.dataType,
+                                             gameData.tournamentYear))
+    if ylimit > 0:
+        plt.ylim((0, ylimit))
     for y,lbl in zip(rows, contours):
         plt.plot(x, y, label = '{0}%'.format(lbl * 100))
     plt.xlabel('Hour')
-    plt.ylabel('Net demand (MW)')
+    plt.ylabel('{} (MW)'.format(dataType))
     plt.legend()
     tickFreq = 12
     if len(data) < 49:

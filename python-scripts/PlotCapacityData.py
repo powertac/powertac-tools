@@ -42,7 +42,8 @@ def dataFileIter (tournamentCsvUrl, tournamentDir):
 def traceFileIter (tournamentCsvUrl, dirPath):
     '''
     Iterates through trace logs extracting mean and sigma values from
-    their boot records as reported by DistributionUtilityService.
+    their boot records as reported by DistributionUtilityService, along
+    with the mean and sigma values from each assessment period.
     NOTE: this code assumes it will run BEFORE the logtool extraction
     '''
     stdKey = re.compile('distributionUtilityService.stdCoefficient=([1-9]+.[1-9]+),')
@@ -111,8 +112,15 @@ def floatMaybe (str):
 
 
 def maxGames (source, assessment, count):
-    ts = assessment * 168 + 360
-    l, g = zip(*sorted(zip(source[ts], games)))
+    gameIds = []
+    data = []
+    for g, d in games.items():
+        if len(d) <= (assessment) or source not in d[assessment]:
+            #print('Game {} source {} data {}'.format(g, source, d))
+            continue
+        gameIds.append(g)
+        data.append(d[assessment][source])
+    l, g = zip(*sorted(zip(data, gameIds)))
     result = []
     limit = count
     for game, value in zip(reversed(g), reversed(l)):
@@ -123,9 +131,13 @@ def maxGames (source, assessment, count):
     return result
 
 
-def plotAggregate (source, title):
+#def shortestGames (n):
+    
+
+def plotAggregate (source, title, yAxisLabel = 'kWh'):
     '''
-    Plots the distribution of source at each assessment across games
+    Draws violin plots of the distribution of source at each assessment
+    across games.
     '''
     index = 0
     data = []
@@ -134,10 +146,11 @@ def plotAggregate (source, title):
         more = False
         for g, d in games.items():
             if len(d) >= index + 1:
-                if len(data) < index + 1:
-                    more = True
-                    data.append([])
-                data[index].append(d[index][source])
+                if source in d[index]:
+                    if len(data) < index + 1:
+                        more = True
+                        data.append([])
+                    data[index].append(d[index][source])
         index += 1
     
     fig = figure()
@@ -146,7 +159,7 @@ def plotAggregate (source, title):
     ax.set_title(title)
     ax.yaxis.grid(True)
     ax.set_xlabel('assessment')
-    ax.set_ylabel('kWh')
+    ax.set_ylabel(yAxisLabel)
     fig.show()
 
 
@@ -158,26 +171,57 @@ def plotAggregateComplete (tournamentCsvUrl, tournamentDir, source, title):
     plotAggregate(source, title)
 
 
-def plotTrend ():
+def plotTrend (source, title, ev = 'ratio'):
     '''
-    Plots the distribution of inter-assessment ratios across games
+    Draws violin plots of the distribution of inter-assessment ratios
+    across games. To get inter-assessment differences, use ev = 'difference'
     '''
-    data = []
-    last = {}
-    for g, v in games:
-        row = bootData[g]
-        last[g] = row['mean'] + row['sigma'] * row['std']
-        #for ts
+    if not ev in ['ratio', 'difference']:
+        print("Value of ev is {}, must be 'ratio' or 'difference'".format(ev))
+        return
+    last = 0.0
+    epsilon = .00001
+    label = source + 'Trend'
+    for g, v in games.items():
+        for index in range(len(v)):
+            #print('g={}, index={}, last={}'.format(g, index, last))
+            if index == 0:
+                last = v[0][source]
+                if ev == 'ratio':
+                    v[0][label] = 1.0
+                else:
+                    v[0][label] = 0.0
+            elif source in v[index]:
+                if ev == 'ratio':
+                    if last == 0.0:
+                        if index == 1:
+                            last = v[index][source]
+                        else:
+                            print('Game {} index {}, last = 0.0'.format(g, index))
+                            last = epsilon
+                    v[index][label] = v[index][source] / last
+                else:
+                    v[index][label] = v[index][source] - last
+                if v[index][source] != 0.0:
+                    last = v[index][source]
+            else:
+                # fill in blanks
+                if ev == 'ratio':
+                    v[index][label] = 1.0
+                else:
+                    v[index] = v[index - 1]
+    plotAggregate(label, title, yAxisLabel = ev)
 
 
-def plotTrendComplete (tournamentCsvUrl, tournamentDir):
+def plotTrendComplete (tournamentCsvUrl, tournamentDir, source, title):
     processFiles(tournamentCsvUrl, tournamentDir)
-    plotTrend()
+    plotTrend(source, title)
 
 
 def processFiles (tournamentCsvUrl, tournamentDir):
     '''
-    Iterates through trace and state files, gathering data for plotting
+    Iterates through trace and state files, gathering data for plotting,
+    just in case this has not already been done. It can take quite a while.
     '''
     global games
     gamesPath = Path(tournamentDir, 'data', 'capacity-data-games.json')
@@ -193,6 +237,5 @@ def processFiles (tournamentCsvUrl, tournamentDir):
         input.close()
 
 
-#datafileIter('finals-2018/data', 'ca')
-#plotThreshold()
 #processFiles('file:./finals-2018/finals_2018_07.games_.csv', 'finals-2018')
+processFiles('file:./finals-2017/finals_2017_06.games.csv', 'finals-2017')

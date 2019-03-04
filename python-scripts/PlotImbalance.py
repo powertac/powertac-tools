@@ -15,10 +15,11 @@ import scipy, pylab, matplotlib
 from pylab import *
 from scipy import stats
 import string,re,os
-import DatafileIterator as di
+import TournamentLogtoolProcessor as tl
 
-logtoolClass = 'org.powertac.logtool.example.ImbalanceSummary'
-dataPrefix = 'data/imbalance-'
+logtoolClass = {'summary': 'org.powertac.logtool.example.ImbalanceSummary',
+                'detail': 'org.powertac.logtool.example.ImbalanceStats'}
+dataPrefix = {'summary': 'imbSum', 'detail': 'imbStats'}
 
 # Extracted data
 gameSummaries = []
@@ -34,18 +35,19 @@ i_ = 4
 i_rms = 5
 ir_ = 6
 
-def collectData (tournamentDir):
+def collectData (tournamentCsvUrl, tournamentDir, datatype='summary'):
     '''
     Processes data from data files in the specified directory.
     '''
-    for dataFile in di.datafileIter(tournamentDir,
-                                    logtoolClass,
-                                    dataPrefix):
-        # note that dataFile is a Path, not a string
-        processFile(str(dataFile))
+    for f in tl.dataFileIter(tournamentCsvUrl,
+                             tournamentDir,
+                             logtoolClass[datatype],
+                             dataPrefix[datatype]):
+        # note that f is a dict{path, gameId}
+        processFile(f['path'])
 
-def processFile (filename):
-    datafile = open(filename, 'r')
+def processFile (filepath):
+    datafile = open(filepath, 'r')
 
     # first line is game summary
     line = datafile.readline()
@@ -78,14 +80,15 @@ def floatMaybe (str):
         result = float(str)
     return result
 
-def usageImbalance ():
+def usageImbalance (tournament):
     usage = [-item[c_]/1000000 for item in gameSummaries]
     imbalance = [item[i_]/1000000 for item in gameSummaries]
     sc = plt.scatter(usage, imbalance, c = gameSizes, cmap = 'rainbow')
-    plt.title('Total energy usage vs total imbalance, 2015 finals')
+    plt.title('Total net consumption vs total imbalance, ' + tournament)
     plt.xlabel('Total customer energy usage (GWh)')
     plt.ylabel('Total imbalance (GWh)')
     plt.colorbar(sc, label = 'number of brokers')
     plt.show()
 
     
+collectData('file:./finals-2017/finals_2017_06.games.csv', 'finals-2017')

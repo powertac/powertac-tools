@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012 by the original author
+ * Copyright (c) 2012, 2019 by the John Collins
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -106,10 +106,6 @@ implements Analyzer
   {
     timeslotRepo = (TimeslotRepo) getBean("timeslotRepo");
     timeService = (TimeService) getBean("timeService");
-    registerNewObjectListener(new TimeslotUpdateHandler(),
-                                  TimeslotUpdate.class);
-    registerNewObjectListener(new ClearedTradeHandler(),
-                                  ClearedTrade.class);
     ignoreCount = ignoreInitial;
     data = new TreeMap<Integer, ClearedTrade[]>();
     try {
@@ -156,48 +152,37 @@ implements Analyzer
 
   // -----------------------------------
   // catch ClearedTrade messages
-  class ClearedTradeHandler implements NewObjectListener
+  public void handleMessage (ClearedTrade ct)
   {
-
-    @Override
-    public void handleNewObject (Object thing)
-    {
-      if (ignoreCount > 0) {
-        return; // nothing to do yet
+    if (ignoreCount > 0) {
+      return; // nothing to do yet
+    }
+    int target = ct.getTimeslotIndex();
+    int now = timeslotRepo.getTimeslotIndex(timeService.getCurrentTime());
+    int offset = target - now - indexOffset;
+    if (offset < 0 || offset > 23) {
+      // problem
+      log.error("ClearedTrade index error: " + offset);
+    }
+    else {
+      ClearedTrade[] targetArray = data.get(target);
+      if (null == targetArray) {
+        targetArray = new ClearedTrade[24];
+        data.put(target, targetArray);
       }
-      ClearedTrade ct = (ClearedTrade) thing;
-      int target = ct.getTimeslotIndex();
-      int now = timeslotRepo.getTimeslotIndex(timeService.getCurrentTime());
-      int offset = target - now - indexOffset;
-      if (offset < 0 || offset > 23) {
-        // problem
-        log.error("ClearedTrade index error: " + offset);
-      }
-      else {
-        ClearedTrade[] targetArray = data.get(target);
-        if (null == targetArray) {
-          targetArray = new ClearedTrade[24];
-          data.put(target, targetArray);
-        }
-        targetArray[offset] = ct;
-      }
+      targetArray[offset] = ct;
     }
   }
   
 
   // -----------------------------------
   // catch TimeslotUpdate events
-  class TimeslotUpdateHandler implements NewObjectListener
+  public void handleMessage (TimeslotUpdate msg)
   {
-
-    @Override
-    public void handleNewObject (Object thing)
-    {
-      if (ignoreCount-- <= 0) {
-        int timeslotSerial = timeslotRepo.currentSerialNumber();
-        if (null == data.get(timeslotSerial)) {
-          data.put(timeslotSerial, new ClearedTrade[24]);
-        }
+    if (ignoreCount-- <= 0) {
+      int timeslotSerial = timeslotRepo.currentSerialNumber();
+      if (null == data.get(timeslotSerial)) {
+        data.put(timeslotSerial, new ClearedTrade[24]);
       }
     }
   }

@@ -76,6 +76,7 @@ implements Analyzer
   private int timeslot = 0;
   private ArrayList<TimeslotData> aggregateData;
   private HashMap<Broker, ArrayList<TimeslotData>> hourlyData;
+  private int skip = 1;
 
   // data output file
   private PrintWriter data = null;
@@ -179,6 +180,10 @@ implements Analyzer
     if (null == btx) {
       initData();
       initTxList();
+      return;
+    }
+    else if (skip > 0) {
+      skip -= 1;
       return;
     }
 

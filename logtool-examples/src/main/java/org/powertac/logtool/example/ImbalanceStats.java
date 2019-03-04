@@ -45,6 +45,8 @@ import org.powertac.util.Pair;
  * imbalance (from balancing transactions) and overall consumption (from
  * tariff transactions).
  * 
+ * If option --no-summary is given then the summary data will not be printed
+ * 
  * The data file contains per-timeslot imbalance for each broker, along with
  * aggregate imbalance and overall consumption.
  * 
@@ -79,6 +81,8 @@ implements Analyzer
   private boolean dataInit = false;
 
   private Competition competition;
+  private int skip = 1;
+  private boolean summarize = true;
 
   /**
    * Constructor does nothing. Call setup() before reading a file to
@@ -103,12 +107,17 @@ implements Analyzer
    */
   private void cli (String[] args)
   {
-    if (args.length != 2) {
-      System.out.println("Usage: <analyzer> input-file output-file");
+    int offset = 0;
+    if (args.length < 2 || args.length > 3) {
+      System.out.println("Usage: <analyzer>  [--no-summary] input-file output-file");
       return;
     }
-    dataFilename = args[1];
-    super.cli(args[0], this);
+    if (args[0].equals("--no-summary")) {
+      summarize = false;
+      offset = 1;
+    }
+    dataFilename = args[1 + offset];
+    super.cli(args[0 + offset], this);
   }
 
   /**
@@ -314,6 +323,9 @@ implements Analyzer
       competition = Competition.currentCompetition();
     tsIndex = ts.getFirstEnabled()
         - competition.getDeactivateTimeslotsAhead();
-    summarizeTimeslot();
+    if (skip > 0)
+      skip -= 1;
+    else
+      summarizeTimeslot();
   }
 }

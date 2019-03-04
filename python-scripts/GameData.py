@@ -5,7 +5,7 @@ name.
 '''
 
 from pathlib import Path
-import DatafileIterator as di
+import TournamentLogtoolProcessor as tl
 
 class GameData:
     '''
@@ -13,14 +13,13 @@ class GameData:
     logType is one of 'sim', 'boot'
     '''
 
-    def __init__ (self, tournament='../../games/finals-201504',
-                  dataType='net-demand'):
-        self.tournament = tournament
-        self.reset(dataType)
+    def __init__ (self, tournamentYear = '2018', dataType='net-demand'):
+        self.reset(dataType, tournamentYear)
 
-    def reset (self, dataType):
+    def reset (self, dataType, tournamentYear):
         # data store
         self.dataType = dataType
+        self.tournamentYear = tournamentYear
         self.gameData = []
         self.bootData = []
         self.gameDict = {}
@@ -41,11 +40,26 @@ class GameData:
                     'production':
                     'org.powertac.logtool.example.ProductionConsumption',
                     'solar':
-                    'org.powertac.logtool.example.SolarProduction'}
-    dataPrefix = {'net-demand': 'data/prod-cons-',
-                  'consumption': 'data/prod-cons-',
-                  'production': 'data/prod-cons-',
-                  'solar': 'data/solar-prod-'}
+                    'org.powertac.logtool.example.SolarProduction',
+                    'mktPrice':
+                    'org.powertac.logtool.example.MktPriceStats',
+                    'mktVolume':
+                    'org.powertac.logtool.example.MktPriceStats'}
+    dataDir = 'data'
+    dataPrefix = {'net-demand': 'pc',
+                  'consumption': 'pc',
+                  'production': 'pc',
+                  'solar': 'solar-prod-',
+                  'mktPrice': 'mktPr',
+                  'mktVolume': 'mktPr'}
+
+    tournamentUrl = {'2018': 'file:./finals-2018/finals_2018_07.games_.csv',
+                     '2017': 'file:./finals-2017/finals_2017_06.games.csv',
+                     '2016': 'file:./finals-2016/finals_2016_07.games.csv'}
+
+    tournamentDir = {'2018': 'finals-2018',
+                     '2017': 'finals-2017',
+                     '2016': 'finals-2016'}
 
     def collectData (self, logType='sim', force=False):
         '''
@@ -59,14 +73,16 @@ class GameData:
         if logType != 'sim':
             actualPrefix = '{}{}-'.format(self.dataPrefix[self.dataType],
                                            logType)
-        for [gameId, dataFile] in di.datafileIter(self.tournament,
-                                                  self.logtoolClass[self.dataType],
-                                                  actualPrefix,
-                                                  logtype=logType,
-                                                  force = force):
+        for info in tl.dataFileIter(self.tournamentUrl[self.tournamentYear],
+                                    self.tournamentDir[self.tournamentYear],
+                                    self.logtoolClass[self.dataType],
+                                    actualPrefix,
+                                    logtype=logType,
+                                    force = force):
             # note that dataFile is a Path, not a string
             if logType == 'sim':
-                self.processFile(gameId, str(dataFile))
+                #print(info['gameId'], str(info['path']))
+                self.processFile(info['gameId'], str(info['path']))
             else:
                 self.processBootFile(gameId, str(dataFile))
 

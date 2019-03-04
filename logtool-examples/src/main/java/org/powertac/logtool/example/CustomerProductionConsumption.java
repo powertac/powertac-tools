@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 by John E. Collins
+ * Copyright (c) 2018, 2019 by John E. Collins
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,8 @@ package org.powertac.logtool.example;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
@@ -25,9 +27,11 @@ import org.joda.time.DateTimeFieldType;
 import org.joda.time.Instant;
 import org.powertac.common.CustomerInfo;
 import org.powertac.common.TariffTransaction;
+import org.powertac.common.TariffTransaction.Type;
 import org.powertac.common.msg.SimEnd;
 import org.powertac.common.msg.SimStart;
 import org.powertac.common.msg.TimeslotUpdate;
+import org.powertac.common.repo.CustomerRepo;
 //import org.powertac.common.spring.SpringApplicationContext;
 import org.powertac.logtool.LogtoolContext;
 import org.powertac.logtool.ifc.Analyzer;
@@ -35,10 +39,13 @@ import org.powertac.logtool.ifc.Analyzer;
 /**
  * Example analysis class.
  * Gathers production and consumption data for a single customer in kWh.
- * Output is one row per timeslot:
+ * If the --single option is given, output is one row per timeslot:
  *   timeslot index, day of week, hour, total production, total consumption
+ * Otherwise, output starts with a list of customer names, followed by one
+ * row/timeslot giving the timeslot index followed by net (production - consumption)
+ * for each customer.
  *
- * Usage: CustomerProductionConsumption customer-name input output
+ * Usage: CustomerProductionConsumption [-- single customer-name] input output
  *
  * @author John Collins
  */
@@ -49,7 +56,7 @@ implements Analyzer
   static private Logger log = LogManager.getLogger(CustomerProductionConsumption.class.getName());
 
   // customer data
-  //private String gameId = null;
+  private boolean single = false;
   private String customerName = "";
   private CustomerInfo customer = null;
 
@@ -57,11 +64,11 @@ implements Analyzer
   private int timeslot;
   private double used = 0.0;
   private double produced = 0.0;
+  private Map<CustomerInfo, Double> customerNet;
 
   // data output file
   private PrintWriter data = null;
   private String dataFilename = "data.txt";
-  private boolean dataInit = false;
   private boolean started = false; // wait for SimStart
 
   /**
@@ -88,13 +95,24 @@ implements Analyzer
    */
   private void cli (String[] args)
   {
-    if (args.length < 3 || args.length > 3) {
-      System.out.println("Usage: <analyzer> customer-name input-file output-file");
+    int offset = 0;
+    if (args.length < 2 || args.length == 3 || args.length > 4) {
+      System.out.println("Usage: <analyzer> [--single customer-name] input-file output-file");
       return;
     }
-    customerName = args[0];
-    dataFilename = args[2];
-    super.cli(args[1], this);
+    if (args.length == 4) {
+      if (args[0].equals("--single")) {
+        single = true;
+        customerName = args[1];
+        offset = 2;        
+      }
+      else {
+        System.out.println("Usage: <analyzer> [--single customer-name] input-file output-file");
+        return;
+      }
+    }
+    dataFilename = args[1 + offset];
+    super.cli(args[offset], this);
   }
 
   /**
@@ -111,7 +129,6 @@ implements Analyzer
     catch (FileNotFoundException e) {
       e.printStackTrace();
     }
-    dataInit = false;
   }
 
   @Override
@@ -120,6 +137,26 @@ implements Analyzer
     data.close();
   }
 
+  // called on sim start
+  private void initData ()
+  {
+    if (single) {
+      // one customer
+      data.println("ts, dow, hod, prod, cons");
+    }
+    else {
+      customerNet = new HashMap<>();
+      CustomerRepo repo = (CustomerRepo) this.getBean("customerRepo");
+      for (CustomerInfo cust: repo.list()) {
+        customerNet.put(cust, 0.0);
+      }
+      for (CustomerInfo cust: customerNet.keySet()) {
+        data.format("%s,", cust.getName());
+      }
+      data.println();
+    }
+  }
+  
   // Called on timeslotUpdate. Note that there are two of these before
   // the first "real" timeslot. Incoming tariffs are published at the end of
   // the second timeslot (the third call to this method), and so customer
@@ -130,61 +167,78 @@ implements Analyzer
     if (!started)
       return;
 
-    if (!dataInit) {
-      // first time through nothing to but print header
-      data.println("slot, dow, hod, production, consumption");
-      dataInit = true;
-      return;
+    if (single) {
+      // print timeslot, dow, hod, production, consumption
+      data.print(String.format("%d, %d, %d, ",
+                               timeslot,
+                               instant.get(DateTimeFieldType.dayOfWeek()),
+                               instant.get(DateTimeFieldType.hourOfDay())));
+      // print customer usage, production
+      data.println(String.format("%.3f, %.3f", produced, used));
+      produced = 0.0;
+      used = 0.0;
     }
-
-    // print timeslot, dow, hod, production, consumption
-    data.print(String.format("%d, %d, %d, ",
-                             timeslot,
-                             instant.get(DateTimeFieldType.dayOfWeek()),
-                             instant.get(DateTimeFieldType.hourOfDay())));
-    // print customer usage, production
-    data.println(String.format("%.3f, %.3f", produced, used));
-    produced = 0.0;
-    used = 0.0;
+    else {
+      // iterate through the map
+      for (double val: customerNet.values()) {
+        data.format("%.3f,", val);
+      }
+      data.println(); 
+      customerNet.replaceAll((k, v) -> 0.0);
+    }
   }
 
+  private int skip = 1;
   // catch TimeslotUpdate events
   public void handleMessage (TimeslotUpdate msg)
   {
-    timeslot = msg.getFirstEnabled() - 1;
-    log.info("Timeslot " + timeslot);
-    summarizeTimeslot(msg.getPostedTime());
+    if (started)
+      if (skip > 0)
+        skip -= 1;
+      else
+        summarizeTimeslot(msg.getPostedTime());
   }
 
   // catch TariffTransactions
   public void handleMessage (TariffTransaction tx)
   {
-    if (tx.getCustomerInfo() != customer)
-      return;
+    if (single) {
+      if (tx.getCustomerInfo() != customer)
+        return;
+      if (tx.getTxType() == Type.CONSUME) {
+        used += tx.getKWh();
+      }
+      else if (tx.getTxType() == Type.PRODUCE) {
+        produced += tx.getKWh();
+      }      
+    }
+    else {
+      if (!(tx.getTxType() == Type.CONSUME || tx.getTxType() == Type.PRODUCE))
+        return;
+      CustomerInfo cust = tx.getCustomerInfo();
+      customerNet.put(cust, customerNet.get(cust) + tx.getKWh());
+    }
 
-    if (tx.getTxType() == TariffTransaction.Type.CONSUME) {
-      used += tx.getKWh();
-    }
-    else if (tx.getTxType() == TariffTransaction.Type.PRODUCE) {
-      produced += tx.getKWh();
-    }
   }
 
   // catch SimStart and SimEnd messages
   public void handleMessage (SimStart ss)
   {
+    System.out.println("Sim start");
     started = true;
+    initData();
   }
 
   public void handleMessage (SimEnd se)
   {
+    System.out.println("Sim end");
     report();
   }
 
   // find our customer
   public void handleMessage (CustomerInfo ci)
   {
-    if (customerName.equals(ci.getName())) {
+    if (single && customerName.equals(ci.getName())) {
       customer = ci;
     }
   }
