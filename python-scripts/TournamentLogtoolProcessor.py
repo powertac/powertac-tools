@@ -23,7 +23,9 @@ def extractData (statefileName, gameId, extractorClass,
     #print("Processing ", statefileName)
     datafileName = dataPrefix + gameId + '.csv'
     dataPath = Path(logtoolDir, dataDir, datafileName)
-    if force or not dataPath.exists():
+    if force and dataPath.exists():
+        dataPath.unlink()
+    if not dataPath.exists():
         args = ''.join([extractorClass, ' ',
                         extractorOptions, ' ',
                         statefileName, ' ',
@@ -61,10 +63,10 @@ def dataFileIter (tournamentCsvUrl, tournamentDir, extractorClass, dataPrefix,
             for log in ti.csvIter(tournamentCsvUrl, tournamentDir))
 
 
-def iterate (url, tournamentDir, extractorClass, dataPrefix, options):
+def iterate (url, tournamentDir, extractorClass, dataPrefix, options, force=False):
     for data in dataFileIter(url, tournamentDir,
                              extractorClass, dataPrefix,
-                             options):
+                             options, force=force):
         print(data)
     
 
@@ -73,15 +75,22 @@ def main ():
     Command-line invocation
     '''
     if len(sys.argv) < 5:
-        print('Usage: TournamentLogtoolProcessor url tournamentDir extractorClass dataPrefix options...')
+        print('Usage: TournamentLogtoolProcessor [--force] url tournamentDir extractorClass dataPrefix options...')
     else:
+        offset = 0
+        force = False
+        if sys.argv[1] == '--force':
+            force = True
+            offset = 1
         options = ''
-        if len(sys.argv) > 5:
-            for index in range(5, len(sys.argv)):
+        if len(sys.argv) > 5 + offset:
+            for index in range(5 + offset, len(sys.argv)):
                 options = options + ' ' + sys.argv[index]
             #print('options', options)
 
-        iterate(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], options)
+        iterate(sys.argv[1 + offset], sys.argv[2 + offset],
+                sys.argv[3 + offset], sys.argv[4 + offset],
+                options, force=force)
 
 if __name__ == "__main__":
     main()

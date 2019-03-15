@@ -62,6 +62,7 @@ def plotContours (contours, dataInterval='Daily',
                   dataType='net-demand',
                   tournamentYear = '2018',
                   ylimit=0,
+                  units='MW',
                   showTitle=False):
     '''
     Extracts data points from the raw data at the given contour intervals.
@@ -99,11 +100,14 @@ def plotContours (contours, dataInterval='Daily',
     for y,lbl in zip(rows, contours):
         plt.plot(x, y, label = '{0}%'.format(lbl * 100))
     plt.xlabel('Hour')
-    plt.ylabel('{} (MW)'.format(dataType))
+    plt.ylabel('{} ({})'.format(dataType, units))
     plt.legend()
     tickFreq = 12
     if len(data) < 49:
         tickFreq = 2
+    elif len(data) > 168:
+        #print(len(data))
+        tickFreq = 168
     plt.xticks(np.arange(0, len(data) + 1, tickFreq))
     plt.show()
 

@@ -147,6 +147,7 @@ implements Analyzer
   @Override
   public void report ()
   {
+    data.close();
     // compute RMS imbalance
     double sum = 0.0;
     double sumsq = 0.0;
