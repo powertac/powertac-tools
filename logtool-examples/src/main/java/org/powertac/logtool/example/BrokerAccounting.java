@@ -56,14 +56,14 @@ import org.powertac.logtool.ifc.Analyzer;
  * followed by credit and debit amounts from transactions and other
  * interactions that affect a broker's cash account: <br>
  * <ul>
- * <li>TariffTransaction (status events)</li>
- * <li>TariffTransaction (produce/consume events)</li>
- * <li>MarketTransaction (aggregated by target timeslot)</li>
- * <li>BalancingTransaction</li>
- * <li>DistributionTransaction</li>
- * <li>CapacityTransaction</li>
- * <li>BalancingControlEvent</li>
- * <li>BankTransaction (interest payments)</li>
+ * <li>TariffTransaction (status events) ttx-sc, ttx-sd</li>
+ * <li>TariffTransaction (produce/consume events) ttx-uc, ttx-ud</li>
+ * <li>MarketTransaction (aggregated by target timeslot) mtx-c, mtx-d</li>
+ * <li>BalancingTransaction  btx-c, btx-d</li>
+ * <li>DistributionTransaction dtx-c, dtx-d</li>
+ * <li>CapacityTransaction ctx-c, ctx-d</li>
+ * <li>BalancingControlEvent bce-c, bce-d</li>
+ * <li>BankTransaction (interest payments) bank-c, bank-d</li>
  * </ul>
  * followed by the broker's CashPosition. Line continues with the next broker
  * unless the per-broker option is given.

@@ -112,7 +112,10 @@ def getItemOffsets (header):
 # --- plotting ---
 
 def brokerDistributions (title, factor, saveAs = ''):
-    '''factor can be one of the keys in the broker accounting table'''
+    '''
+    Plots distributions of a factor across brokers.
+    Factor can be one of the keys in the broker accounting table
+    or one of the sums defined above'''
 
     data = [v[factor]
             for k,v in brokerSummaries.items()
@@ -130,8 +133,36 @@ def brokerDistributions (title, factor, saveAs = ''):
     if saveAs == '':
         fig.show()
     else:
-        pp.savefig(plotDir + '/' + saveAs + '.png')
-        pp.savefig(plotDir + '/' + saveAs + '.svg')
-    
+        pp.savefig(plotDir + '/' + saveAs + '.png', transparent=True)
+        pp.savefig(plotDir + '/' + saveAs + '.svg', transparent=True)
+
+def factorDistributions (title, broker,
+                         factors = ['ttx-s', 'ttx-u', 'mtx', 'ctx', 'btx', 'bank'],
+                         yLimit = [],
+                         saveAs = ''):
+    '''
+    Plots distributions of a set of factors for a single broker in a tournament.
+    '''
+
+    data = []
+    for k in brokerSummaries[broker].keys():
+        if k in factors:
+            data.append(brokerSummaries[broker][k])
+    fig = figure()
+    ax = fig.add_subplot(1,1,1)
+    ax.violinplot(data, showmeans=False, showmedians=True)
+    ax.set_title(title)
+    ax.yaxis.grid(True)
+    if len(yLimit) == 2:
+        ax.set_ylim(yLimit[0], yLimit[1])
+    factors = [' '] + factors
+    ax.set_xticks(np.arange(len(factors)))
+    ax.set_xticklabels(factors)
+    #fig.tight_layout()
+    if saveAs == '':
+        fig.show()
+    else:
+        pp.savefig(plotDir + '/' + saveAs + '.png', transparent=True)
+        pp.savefig(plotDir + '/' + saveAs + '.svg', transparent=True)
 
 # collectData('file:./finals-2018/finals_2018_07.games_.csv', 'finals-2018')
