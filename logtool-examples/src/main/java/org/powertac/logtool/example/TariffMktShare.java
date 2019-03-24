@@ -25,7 +25,11 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 
 import org.powertac.common.Broker;
+import org.powertac.common.CustomerInfo;
+import org.powertac.common.CustomerInfo.CustomerClass;
 import org.powertac.common.TariffTransaction;
+import org.powertac.common.msg.SimEnd;
+import org.powertac.common.msg.SimStart;
 import org.powertac.common.msg.TimeslotUpdate;
 import org.powertac.common.repo.BrokerRepo;
 import org.powertac.common.spring.SpringApplicationContext;
@@ -35,12 +39,15 @@ import org.powertac.logtool.ifc.Analyzer;
 /**
  * Example analysis class.
  * Extracts TariffTransactions, looks for SIGNUP and WITHDRAW transactions,
- * computes market share by broker and total customer count.
+ * computes market share by broker and tracks total customer count.
  * 
  * First line lists brokers. Remaining lines are emitted for each timeslot
  * in which SIGNUP or WITHDRAW transactions occur, format is
  *   timeslot, customer-count, ..., total-customer-count
  * with one customer-count field for each broker.
+ * 
+ * If the --size option is given, then the counts are pairs [small, large]
+ * giving the numbers of SMALL and LARGE customers in their portfolios
  * 
  * @author John Collins
  */
@@ -51,14 +58,14 @@ implements Analyzer
   static private Logger log = LogManager.getLogger(TariffMktShare.class.getName());
 
   private BrokerRepo brokerRepo;
-  private int skip = 0;
+  private int skip = 1;
+  private boolean started = false;
 
-  // list of TariffTransactions for current timeslot
-  private ArrayList<TariffTransaction> ttx;
+  private ArrayList<Broker> brokers; // need to report in order
   private HashMap<Broker, Integer> customerCounts;
-
-  // output array, indexed by timeslot
-  private ArrayList<Broker> brokers = null;
+  private HashMap<Broker, Integer> largeCustomerCounts;
+  private boolean txActivity = false;
+  private boolean countSize = false;
 
   // data output file
   private PrintWriter data = null;
@@ -87,12 +94,17 @@ implements Analyzer
    */
   private void cli (String[] args)
   {
-    if (args.length != 2) {
-      System.out.println("Usage: <analyzer> input-file output-file");
+    if (args.length < 2 || args.length > 3) {
+      System.out.println("Usage: TariffMktShare [--size] input-file output-file");
       return;
     }
-    dataFilename = args[1];
-    super.cli(args[0], this);
+    int offset = 0;
+    if (args[0].equals("--size")) {
+      countSize = true;
+      offset = 1;
+    }
+    dataFilename = args[1 + offset];
+    super.cli(args[0 + offset], this);
     skip = 1;
   }
 
@@ -105,13 +117,44 @@ implements Analyzer
   public void setup ()
   {
     brokerRepo = (BrokerRepo) SpringApplicationContext.getBean("brokerRepo");
-    ttx = new ArrayList<TariffTransaction>();
+    //ttx = new ArrayList<TariffTransaction>();
     try {
       data = new PrintWriter(new File(dataFilename));
     }
     catch (FileNotFoundException e) {
       log.error("Cannot open file " + dataFilename);
     }
+  }
+
+  // This is run when the first tariff transaction arrives, which is during
+  // server initialization while customers are subscribing to the default broker.
+  public void init()
+  {
+    // first time through
+    brokers = new ArrayList<>();
+    customerCounts = new HashMap<>();
+    largeCustomerCounts = new HashMap<>();
+    for (Broker broker : brokerRepo.findRetailBrokers()) {
+      brokers.add(broker);
+      customerCounts.put(broker, 0);
+      largeCustomerCounts.put(broker, 0);
+    }
+    started = true;
+  }
+
+  // at sim-start we know who the rest of the brokers are
+  public void addRemainingBrokers ()
+  {
+    data.print("ts");
+    for (Broker broker : brokerRepo.findRetailBrokers()) {
+      if (!brokers.contains(broker)) {
+        brokers.add(broker);
+        customerCounts.put(broker, 0);
+        largeCustomerCounts.put(broker, 0);
+      }
+      data.format(",%s", broker.getUsername());
+    }
+    data.println();
   }
 
   @Override
@@ -127,56 +170,49 @@ implements Analyzer
   // four calls.
   private void summarizeTimeslot (TimeslotUpdate ts)
   {
-    int currentTimeslot = ts.getFirstEnabled() - 2;
-
-    if (null == brokers) {
-      // first time through
-      brokers = new ArrayList<Broker>();
-      customerCounts = new HashMap<Broker, Integer>();
-      data.print("ts, ");
-      for (Broker broker : brokerRepo.findRetailBrokers()) {
-        brokers.add(broker);
-        customerCounts.put(broker, 0);
-        data.print(broker.getUsername());
-        data.print(", ");
+    int currentTimeslot = ts.getFirstEnabled() - 1;
+    if (!txActivity)
+      return;
+    // print results for this timeslot
+    data.print(currentTimeslot);
+    data.print(",");
+    for (Broker broker: brokers) {
+      if (countSize)
+        data.print("[");
+      int count = customerCounts.get(broker);
+      data.format("%d,", count);
+      if (countSize) {
+        data.format("%d],", largeCustomerCounts.get(broker));
       }
-      data.println("total");
     }
-
-    if (ttx.size() > 0) {
-      // there are some signups and withdraws here
-      for (TariffTransaction tx : ttx) {
-        Broker broker = tx.getBroker();
-        int pop = 0;
-        if (tx.getTxType() == TariffTransaction.Type.SIGNUP)
-          pop = tx.getCustomerCount();
-        else if (tx.getTxType() == TariffTransaction.Type.WITHDRAW)
-          pop = -tx.getCustomerCount();
-        customerCounts.put(broker, customerCounts.get(broker) + pop);
-      }
-      // print results for this timeslot
-      data.print(currentTimeslot);
-      data.print(", ");
-      int sum = 0;
-      for (Broker broker: brokers) {
-        int count = customerCounts.get(broker);
-        data.print(count);
-        sum += count;
-        data.print(", ");
-      }
-      data.println(sum);
-    }
-    ttx.clear();
+    data.println();
+    txActivity = false;
   }
 
   // -----------------------------------
   // catch TariffTransactions
   public void handleMessage (TariffTransaction tx)
   {
+    if (!started)
+      init();
     // only include SIGNUP and WITHDRAW
-    if (tx.getTxType() == TariffTransaction.Type.SIGNUP ||
-        tx.getTxType() == TariffTransaction.Type.WITHDRAW) {
-      ttx.add(tx);
+    int pop = 0;
+    if (tx.getTxType() == TariffTransaction.Type.SIGNUP)
+      pop = tx.getCustomerCount();
+    else if (tx.getTxType() == TariffTransaction.Type.WITHDRAW)
+      pop = -tx.getCustomerCount();
+    else 
+      return;
+
+    Broker broker = tx.getBroker();
+    txActivity = true;
+    if (!(tx.getCustomerInfo().getCustomerClass() == CustomerClass.SMALL))
+      System.out.format("customer %s not small", tx.getCustomerInfo().getName());
+    if (!countSize || tx.getCustomerInfo().getCustomerClass() == CustomerClass.SMALL) {
+      customerCounts.put(broker, customerCounts.get(broker) + pop);          
+    }
+    else {
+      largeCustomerCounts.put(broker,  largeCustomerCounts.get(broker) + pop);
     }
   } 
 
@@ -188,5 +224,18 @@ implements Analyzer
       skip -= 1;
     else
       summarizeTimeslot(tu);
+  }
+
+  // -------------------------------------
+  // catch SimStart and SimEnd events
+  public void handleMessage (SimStart ss)
+  {
+    System.out.println("Sim start");
+    addRemainingBrokers();
+  }
+
+  public void handleMessage (SimEnd se)
+  {
+    System.out.println("Sim end");
   }
 }

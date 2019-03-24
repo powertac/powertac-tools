@@ -51,11 +51,18 @@ import org.powertac.logtool.ifc.Analyzer;
 
 /**
  * Logtool Analyzer that extracts tariffs and all associated data from a game log.
- * Output depends on whether the --narrative option is specified. In narrative mode,
- * the output is a sequence of events, including tariff publication, subscription
- * changes, and daily summaries of per-tariff earnings.
+ * Output depends on whether the --narrative option or the --profile option
+ * is specified. In narrative mode, the output is a sequence of events, including
+ * tariff publication, subscription changes, and daily summaries of per-tariff earnings.
  * 
- * Without the --narrative option, output is in three parts. Part 1 is a list of
+ * With the --profile option, output is tariffs in a form directly readable by python.
+ * Each published tariff is represented as a dict of the form
+ *  {broker:b,ts:ts,tariffId:id,powerType:pt,minDuration:md,signup:p,withdraw:w,
+ *   periodic:p,tiered:tf,variable:tf,rate:rrr,upReg:u,downReg:d}
+ * where the rate is a list of one element for fixed price, or 24 or 168 elements for
+ * a TOU rate. The rate field is blank for a variable-rate tariff.
+ * 
+ * Without an option, output is in three parts. Part 1 is a list of
  * tariffs in the order they appear in the log. For each tariff, fields are:
  *   intro TS, Broker, ID, PowerType, minDuration, signup, withdraw, periodic pmt,
  *       rate-info, up-reg price, down-reg price.
@@ -99,6 +106,7 @@ implements Analyzer
   //private HashMap<Integer, HashMap<Tariff, TariffData>> tariffData;
 
   private boolean narrative = false;
+  private boolean profile = false;
   private boolean started = false;
   //private boolean firstTx = false;
   private int timeslot = 360;
@@ -124,6 +132,10 @@ implements Analyzer
     if (args.length == 3 && args[0].equals("--narrative")) {
       offset = 1;
       narrative = true;
+    }
+    else if (args.length == 3 && args[0].equals("--profile")) {
+      offset = 1;
+      profile = true;
     }
     else if (args.length != 2) {
       System.out.println("Usage: org.powertac.logtool.example.TariffAnalysis [--narrative] input-file output-file");
@@ -197,7 +209,7 @@ implements Analyzer
         }
       }
     }
-    else {
+    else if (!profile) {
       output.println("------------\nSubscription changes\n------------");
       // broker name header
       output.print("                ");
@@ -278,9 +290,7 @@ implements Analyzer
   private void dumpNewTariffs ()
   {
     if (narrative) {
-      // get here at summary intervals
       if (newTariffs.size() > 0) {
-        //dumpTimeslotMaybe ();
         output.format("--- New tariffs ts %d:\n", timeslot);
         for (Tariff tariff: newTariffs)
           dumpTariff(tariff);
@@ -299,6 +309,14 @@ implements Analyzer
           output.println();
         }
         revokes.clear();
+      }
+    }
+    else if (profile) {
+      if (newTariffs.size() > 0) {
+        for (Tariff tariff: newTariffs) {
+          dumpTariffProfile(tariff);
+        }
+        newTariffs.clear();
       }
     }
     else {
@@ -355,7 +373,7 @@ implements Analyzer
   // rate, a dict for a tiered rate.
   private void dumpTariff (Tariff tariff)
   {
-    //if (tariff.getId() == 401598600) {
+    //if (tariff.getId() == 501428079) {
     //  System.out.println("rr tariff");
     //}
     output.format("%s %d %s:",
@@ -406,10 +424,7 @@ implements Analyzer
     if (tariff.isWeekly()) {
       output.print(" tou=[");
       //start at midnight next Monday
-      Instant now = timeService.getCurrentTime();
-      Instant midnight = now.minus(timeService.getHourOfDay() * TimeService.HOUR);
-      int day = midnight.toDateTime().getDayOfWeek();
-      Instant start = midnight.plus((7 - day) * TimeService.DAY);
+      Instant start = mondayMidnight();
       TreeMap<Integer, TreeMap<Integer, Double>> dayPrices = new TreeMap<>();
       int lastDay = 0;
       for (int d = 0; d < 7; d++) {
@@ -440,6 +455,66 @@ implements Analyzer
       TreeMap<Integer, Double> hrPrices = gatherHourlyPrices(tariff, midnight);
       printHourlyPrices(hrPrices);
     }
+  }
+
+  private Instant mondayMidnight ()
+  {
+    Instant now = timeService.getCurrentTime();
+    Instant midnight = now.minus(timeService.getHourOfDay() * TimeService.HOUR);
+    int day = midnight.toDateTime().getDayOfWeek();
+    Instant start = midnight.plus((7 - day) * TimeService.DAY);
+    return start;
+  }
+
+  private void dumpTariffProfile (Tariff tariff)
+  {
+    //{broker:b,ts:ts,tariffId:id,powerType:pt,minDuration:md,signup:p,withdraw:w,
+    // periodic:p,tiered:tf,variable:tf,rate:rrr,upReg:u,downReg:d}
+    output.format("{'broker':'%s','ts':%d,'tariffId':%d,'powerType':'%s',",
+                  tariff.getBroker().getUsername(), timeslot, tariff.getId(),
+                  tariff.getPowerType().toString());
+    output.format("'minDuration':%d,'signup':%.3f,'withdraw':%.3f,'periodic':%.3f,",
+                  tariff.getMinDuration(), tariff.getSignupPayment(),
+                  tariff.getEarlyWithdrawPayment(), tariff.getPeriodicPayment());
+    output.format("'tiered':%s,", tariff.isTiered()?"True":"False");
+    output.format("'variable':%s,", tariff.isVariableRate()?"True":"False");
+    double[] prices = getRateArray(tariff);
+    output.print("'rate':");
+    String delim = "[";
+    for (double price: prices) {
+      output.format("%s%.3f", delim, price);
+      delim = ",";
+    }
+    output.print("],");
+    double upreg = 0.0;
+    double downreg = 0.0;
+    if (tariff.getTariffSpecification().hasRegulationRate()) {
+      RegulationRate rr = tariff.getTariffSpecification().getRegulationRates().get(0);
+      upreg = rr.getUpRegulationPayment();
+      downreg = rr.getDownRegulationPayment();
+    }
+    output.format("'upReg':%.3f,'downReg':%.3f}\n", upreg, downreg);
+  }
+
+  private double[] getRateArray (Tariff tariff)
+  {
+    double[] prices;
+    Instant start = mondayMidnight();
+    if (tariff.isTimeOfUse()) {
+      int hrs = 24;
+      if (tariff.isWeekly())
+        hrs = 168;
+      prices = new double[hrs];
+      for (int hr = 0; hr < prices.length; hr++) {
+        prices[hr] =
+                tariff.getUsageCharge(start.plus(hr * TimeService.HOUR), 1.0, 1.0);
+      }
+    }
+    else {
+      prices = new double[1];
+      prices[0] = tariff.getTariffSpecification().getRates().get(0).getValue();
+    }
+    return prices;
   }
 
   private TreeMap<Integer, Double> gatherHourlyPrices (Tariff tariff,

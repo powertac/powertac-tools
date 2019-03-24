@@ -18,11 +18,13 @@ import scipy, pylab, matplotlib
 from pylab import *
 from scipy import stats
 import string,re,os
-import DatafileIterator as di
+import TournamentLogtoolProcessor as tl
 
 logtoolClass = 'org.powertac.logtool.example.MktPriceStats'
-dataPrefix = 'data/mkt-price-'
+tournamentDir = 'finals-2018'
+dataPrefix = 'mktPr'
 initialSkip = 6 # timeslots to skip at start
+plotDir = 'plots/'
 
 gameData = []
 weekData = [[] for x in range(168)]
@@ -32,15 +34,17 @@ dayData = [[] for x in range(24)]
 dataMap = {'Weekly':weekData, 'Weekday':weekdayData, 'Weekend':weekendData,
            'Daily':dayData}
 
-def collectData (tournamentDir):
+def collectData (csvUrl, tournamentDir):
     '''
     Processes data from data files in the specified directory.
     '''
-    for dataFile in di.datafileIter(tournamentDir,
-                                    logtoolClass,
-                                    dataPrefix):
+    for info in tl.dataFileIter(csvUrl, tournamentDir,
+                                logtoolClass,
+                                dataPrefix):
         # note that dataFile is a Path, not a string
-        processFile(str(dataFile))
+        processFile(str(info['path']))
+
+# collectData('file:./finals-2018/finals_2018_07.games_.csv', 'finals-2018')
 
 def processFile (filename):
     '''
@@ -108,8 +112,8 @@ def meanPrices (data):
         qty = 0.0
         cost = 0.0
         for pair in ts:
-            qty += pair[0]
-            cost += pair[0] * pair[1]
+            qty += float(pair[0])
+            cost += float(pair[0]) * float(pair[1])
         if qty == 0.0:
             result.append(0.0)
         else:
@@ -220,7 +224,7 @@ def plotDataWithLabels (data, labels, columns, low=1, high=-1):
     legend(loc='lower left')
     show()
 
-def plotContours (dataName, contours):
+def plotContours (dataName, contours, saveAs=''):
     '''
     Extracts data points from the raw data at the given contour intervals.
     The contours arg is a list of probabilities 0.0 < contour <= 1.0.
@@ -259,7 +263,10 @@ def plotContours (dataName, contours):
     if len(data) < 49:
         tickFreq = 2
     plt.xticks(np.arange(0, len(data) + 1, tickFreq))
-    plt.show()
+    if saveAs == '':
+        plt.show()
+    else:
+        plt.savefig(plotDir + saveAs + '.png')
 
 def plotHistogram ():
     '''
