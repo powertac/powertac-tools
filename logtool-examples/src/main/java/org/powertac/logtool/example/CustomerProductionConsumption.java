@@ -18,7 +18,9 @@ package org.powertac.logtool.example;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.logging.log4j.Logger;
@@ -64,7 +66,9 @@ implements Analyzer
   private int timeslot;
   private double used = 0.0;
   private double produced = 0.0;
+  private List<CustomerInfo> customers;
   private Map<CustomerInfo, Double> customerNet;
+  private Map<CustomerInfo, Double> customerCost;
 
   // data output file
   private PrintWriter data = null;
@@ -145,13 +149,19 @@ implements Analyzer
       data.println("ts, dow, hod, prod, cons");
     }
     else {
+      customers = new ArrayList<>();
       customerNet = new HashMap<>();
+      customerCost = new HashMap<>();
       CustomerRepo repo = (CustomerRepo) this.getBean("customerRepo");
       for (CustomerInfo cust: repo.list()) {
+        customers.add(cust);
         customerNet.put(cust, 0.0);
+        customerCost.put(cust, 0.0);
       }
-      for (CustomerInfo cust: customerNet.keySet()) {
-        data.format("%s,", cust.getName());
+      for (CustomerInfo cust: customers) {
+        data.format("{'name':%s,'type':%s,'pop':%d}, ",
+                    cust.getName(), cust.getPowerType().toString(),
+                    cust.getPopulation());
       }
       data.println();
     }
@@ -180,12 +190,19 @@ implements Analyzer
     }
     else {
       // iterate through the map
-      for (double val: customerNet.values()) {
-        data.format("%.3f,", val);
+      for (CustomerInfo cust: customers) {
+        data.format("{'name':%s,'net':%.3f,'cost':%.3f},",
+                    cust.getName(), customerNet.get(cust), customerCost.get(cust));
       }
-      data.println(); 
-      customerNet.replaceAll((k, v) -> 0.0);
+      data.println();
+      clearCustomerData();
     }
+  }
+
+  private void clearCustomerData ()
+  {
+    customerNet.replaceAll((k, v) -> 0.0);
+    customerCost.replaceAll((k, v) -> 0.0);
   }
 
   private int skip = 1;
@@ -193,8 +210,10 @@ implements Analyzer
   public void handleMessage (TimeslotUpdate msg)
   {
     if (started)
-      if (skip > 0)
+      if (skip > 0) {
         skip -= 1;
+        clearCustomerData();
+      }
       else
         summarizeTimeslot(msg.getPostedTime());
   }
@@ -217,6 +236,7 @@ implements Analyzer
         return;
       CustomerInfo cust = tx.getCustomerInfo();
       customerNet.put(cust, customerNet.get(cust) + tx.getKWh());
+      customerCost.put(cust, customerCost.get(cust) + tx.getCharge());
     }
 
   }
