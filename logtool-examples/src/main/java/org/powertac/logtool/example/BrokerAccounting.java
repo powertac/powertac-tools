@@ -18,9 +18,12 @@ package org.powertac.logtool.example;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;
+import java.text.DecimalFormat;
+import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.TreeMap;
 
 import org.apache.logging.log4j.Logger;
@@ -86,6 +89,7 @@ implements Analyzer
   private List<Broker> brokerList;
   private HashMap<Broker, TreeMap<Integer, ArrayList<MarketTransaction>>> data;
   private HashMap<Broker, BrokerData> brokerData;
+  private DecimalFormat df;
 
   private boolean started = false;
   private boolean firstTx = false;
@@ -118,6 +122,9 @@ implements Analyzer
       return;
     }
     dataFilename = args[1 + offset];
+    df = (DecimalFormat)NumberFormat.getInstance(Locale.US);
+    df.setMaximumFractionDigits(4);
+    df.setGroupingUsed(false);
     super.cli(args[offset], this);
   }
 
@@ -191,8 +198,13 @@ implements Analyzer
     output.format(",%s",broker.getUsername());
     BrokerData bd = brokerData.get(broker);
     // TariffTransaction, state and usage
-    output.format(",%.4f,%.4f,%.4f,%.4f",
-                  bd.ttxSC, bd.ttxSD, bd.ttxUC, bd.ttxUD);
+    //output.format(",%.4f,%.4f,%.4f,%.4f",
+    //              bd.ttxSC, bd.ttxSD, bd.ttxUC, bd.ttxUD);
+    output.format(",%s,%s,%s,%s",
+                  df.format(bd.ttxSC),
+                  df.format(bd.ttxSD),
+                  df.format(bd.ttxUC),
+                  df.format(bd.ttxUD));
     // Handle deferred market transactions for this timeslot
     TreeMap<Integer, ArrayList<MarketTransaction>> brokerTxMap =
         data.get(broker);
@@ -210,13 +222,27 @@ implements Analyzer
         }
       }
     }
-    output.format(",%.4f,%.4f", mtxC, mtxD);
+    //output.format(",%.4f,%.4f", mtxC, mtxD);
+    output.format(",%s,%s", df.format(mtxC), df.format(mtxD));
     // balancing, distribution, capacity
-    output.format(",%.4f,%.4f,%.4f,%.4f,%.4f,%.4f",
-                  bd.btxC, bd.btxD, bd.dtxC, bd.dtxD, bd.ctxC, bd.ctxD);
+    //output.format(",%.4f,%.4f,%.4f,%.4f,%.4f,%.4f",
+    //              bd.btxC, bd.btxD, bd.dtxC, bd.dtxD, bd.ctxC, bd.ctxD);
+    output.format(",%s,%s,%s,%s,%s,%s",
+                  df.format(bd.btxC),
+                  df.format(bd.btxD),
+                  df.format(bd.dtxC),
+                  df.format(bd.dtxD),
+                  df.format(bd.ctxC),
+                  df.format(bd.ctxD));
     // balancing control, bank
-    output.format(",%.4f,%.4f,%.4f,%.4f,%.4f",
-                  bd.bceC, bd.bceD, bd.bankC, bd.bankD, bd.cash);
+    //output.format(",%.4f,%.4f,%.4f,%.4f,%.4f",
+    //              bd.bceC, bd.bceD, bd.bankC, bd.bankD, bd.cash);
+    output.format(",%s,%s,%s,%s,%s",
+                  df.format(bd.bceC),
+                  df.format(bd.bceD),
+                  df.format(bd.bankC),
+                  df.format(bd.bankD),
+                  df.format(bd.cash));
     bd.clear();
   }
 
