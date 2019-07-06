@@ -47,6 +47,9 @@ import org.powertac.logtool.ifc.Analyzer;
  * 
  * If the option '--no-headers' is given, the first three fields are omitted.
  * 
+ * NOTE: Numeric data is formatted using the US locale in order to avoid confusion over
+ * the meaning of the comma character when used in other locales.
+ * 
  * Usage: MktPriceStats [--no-headers] state-log-filename output-data-filename
  * 
  * @author John Collins
@@ -139,9 +142,9 @@ implements Analyzer
           output.print(delim + "[0.0 0.0]");
         }
         else {
-          output.format("%s[%.4f %.4f]", delim,
-                        trades[i].getExecutionMWh(),
-                        trades[i].getExecutionPrice());
+          output.format("%s[%s %s]", delim,
+                        df.format(trades[i].getExecutionMWh()),
+                        df.format(trades[i].getExecutionPrice()));
         }
         delim = ",";
       }

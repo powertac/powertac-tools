@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 by John E. Collins
+ * Copyright (c) 2017-2019 by John E. Collins
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,6 +43,9 @@ import org.powertac.logtool.ifc.Analyzer;
  * and external wholesale demand (the MisoBuyer).
  * Output is one row per timeslot:
  *   timeslot index, day of week, hour, total consumption, external demand
+ * 
+ * NOTE: Numeric data is formatted using the US locale in order to avoid confusion over
+ * the meaning of the comma character when used in other locales.
  *
  * @author John Collins
  */
@@ -156,7 +159,7 @@ implements Analyzer
         extDemand += qty;
     }
     // print customer usage
-    data.printf(", %.3f, %.3f\n", intDemand, extDemand);
+    data.printf(", %s, %s\n", df.format(intDemand), df.format(extDemand));
     intDemand = 0.0;
   }
 

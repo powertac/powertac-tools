@@ -64,7 +64,10 @@ import org.powertac.logtool.ifc.Analyzer;
  * 5. Gather BalancingTransaction instances until a TimeslotUpdate arrives.
  *    These give total net imbalance (after the local balancing controls are
  *    applied) for each broker, and the cost to resolve it.
- *
+ * 
+ * NOTE: Numeric data is formatted using the US locale in order to avoid confusion over
+ * the meaning of the comma character when used in other locales.
+ * 
  * Usage:
  *   EnergyMixStats [--with-gameid] state-log data-file
  *
@@ -172,13 +175,19 @@ implements Analyzer
                        + ", " + timeslot + " timeslots");
     data.print("Summary, ");
     data.println(String
-                 .format("%.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f",
-                         totalImports.quantity, totalImports.cost,
-                         totalUsed.quantity, totalUsed.cost,
-                         totalProduced.quantity, totalProduced.cost,
-                         totalUp.quantity, totalUp.cost,
-                         totalDown.quantity, totalDown.cost,
-                         totalImbalance.quantity, totalImbalance.cost));
+                 .format("%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s",
+                         df.format(totalImports.quantity),
+                         df.format(totalImports.cost),
+                         df.format(totalUsed.quantity),
+                         df.format(totalUsed.cost),
+                         df.format(totalProduced.quantity),
+                         df.format(totalProduced.cost),
+                         df.format(totalUp.quantity),
+                         df.format(totalUp.cost),
+                         df.format(totalDown.quantity),
+                         df.format(totalDown.cost),
+                         df.format(totalImbalance.quantity),
+                         df.format(totalImbalance.cost)));
     data.close();
   }
 
@@ -217,27 +226,34 @@ implements Analyzer
     // print market data
     QtyCost mktData = mktTxSummary.get(timeslot);
     if (null != mktData) {
-      data.print(String.format("%.3f, %.3f, ", mktData.quantity, mktData.cost));
+      data.print(String.format("%s, %s, ",
+                               df.format(mktData.quantity),
+                               df.format(mktData.cost)));
       totalImports.add(mktData);
     }
     else {
       data.print("0.0, 0.0, ");
     }
     // print customer usage, production
-    data.print(String.format("%.3f, %.3f, %.3f, %.3f, ",
-                             used.quantity, used.cost,
-                             produced.quantity, produced.cost));
+    data.print(String.format("%s, %s, %s, %s, ",
+                             df.format(used.quantity),
+                             df.format(used.cost),
+                             df.format(produced.quantity),
+                             df.format(produced.cost)));
     totalUsed.add(used);
     totalProduced.add(produced);
     // print regulation usage, production
-    data.print(String.format("%.3f, %.3f, %.3f, %.3f, ",
-                             upRegulation.quantity, upRegulation.cost,
-                             downRegulation.quantity, downRegulation.cost));
+    data.print(String.format("%s, %s, %s, %s, ",
+                             df.format(upRegulation.quantity),
+                             df.format(upRegulation.cost),
+                             df.format(downRegulation.quantity),
+                             df.format(downRegulation.cost)));
     totalUp.add(upRegulation);
     totalDown.add(downRegulation);
     // print balance volume, cost
-    data.println(String.format("%.3f, %.3f",
-                               balanceEnergy.quantity, balanceEnergy.cost));
+    data.println(String.format("%s, %s",
+                               df.format(balanceEnergy.quantity),
+                               df.format(balanceEnergy.cost)));
     totalImbalance.add(balanceEnergy);
   }
 

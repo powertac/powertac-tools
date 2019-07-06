@@ -39,6 +39,9 @@ import org.powertac.logtool.ifc.Analyzer;
  * For each timeslot, report includes
  *   timeslot index, day of week, hour, total production, total consumption
  * 
+ * NOTE: Numeric data is formatted using the US locale in order to avoid confusion over
+ * the meaning of the comma character when used in other locales.
+ * 
  * @author John Collins
  */
 public class SolarProduction
@@ -140,7 +143,7 @@ implements Analyzer
                              instant.get(DateTimeFieldType.dayOfWeek()),
                              instant.get(DateTimeFieldType.hourOfDay())));
     // print customer usage, production
-    data.println(String.format("%.3f, %.3f", produced, 0.0));
+    data.println(String.format("%s, %s", df.format(produced), df.format(0.0)));
     produced = 0.0;
   }
 

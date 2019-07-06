@@ -51,6 +51,9 @@ import org.powertac.logtool.ifc.Analyzer;
  * gameid, timeslot, broker, netDemand, marketQty, marketCost, imbalance, balancingCost, MktImbalanceCost, estCost
  * 
  * The estCost is the cost to clear a negative imbalance, given the n-1 orderbook.
+ * 
+ * NOTE: Numeric data is formatted using the US locale in order to avoid confusion over
+ * the meaning of the comma character when used in other locales.
  *
  * @author John Collins
  */
@@ -243,13 +246,16 @@ implements Analyzer
         }
       }
 
-      data.printf("%s,%d,%s,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f\n",
+      data.printf("%s,%d,%s,%s,%s,%s,%s,%s,%s,%s\n",
                   competition.getName(), timeslot,
                   broker.getUsername(),
-                  bt.netDemand,
-                  bt.marketQty, bt.marketCost,
-                  bt.imbalance, bt.balancingCost,
-                  mktImbalance, estPrice * bt.imbalance);
+                  df.format(bt.netDemand),
+                  df.format(bt.marketQty),
+                  df.format(bt.marketCost),
+                  df.format(bt.imbalance),
+                  df.format(bt.balancingCost),
+                  df.format(mktImbalance),
+                  df.format(estPrice * bt.imbalance));
     }
     lastOrderbook = pendingLastOrderbook; // push the queue
   }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, 2017 by John E. Collins
+ * Copyright (c) 2015, 2019 by John E. Collins
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,6 +42,9 @@ import org.powertac.logtool.ifc.Analyzer;
  * Given the command-line option --by-broker, output is broken down
  * by broker, formatted as:
  *   game-id, timeslot, broker-name, production, consumption
+ * 
+ * NOTE: Numeric data is formatted using the US locale in order to avoid confusion over
+ * the meaning of the comma character when used in other locales.
  *
  * @author John Collins
  */
@@ -158,9 +161,9 @@ implements Analyzer
         data.print(String.format("%s, %d, %s, ",
                                  gameId, timeslot,
                                  broker.getUsername()));
-        data.println(String.format("%.3f, %.3f", 
-                                   brokerProduced.get(broker),
-                                   brokerUsed.get(broker)));
+        data.println(String.format("%s, %s", 
+                                   df.format(brokerProduced.get(broker)),
+                                   df.format(brokerUsed.get(broker))));
         brokerProduced.put(broker, 0.0);
         brokerUsed.put(broker, 0.0);
       }
@@ -172,7 +175,7 @@ implements Analyzer
                                instant.get(DateTimeFieldType.dayOfWeek()),
                                instant.get(DateTimeFieldType.hourOfDay())));
       // print customer usage, production
-      data.println(String.format("%.3f, %.3f", produced, used));
+      data.println(String.format("%s, %s", df.format(produced), df.format(used)));
       produced = 0.0;
       used = 0.0;
     }

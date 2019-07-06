@@ -58,6 +58,9 @@ import org.powertac.logtool.ifc.Analyzer;
  *     customer-name input output
  * where the options are filters on the data that's collected. Only one option
  * is allowed.
+ * 
+ * NOTE: Numeric data is formatted using the US locale in order to avoid confusion over
+ * the meaning of the comma character when used in other locales.
  *
  * @author John Collins
  */
@@ -178,14 +181,19 @@ implements Analyzer
     }
 
     // print timeslot, dow, hod,
-    data.print(String.format("%d, %d, %d, ",
+    data.print(String.format("%d,%d,%d,",
                              timeslot,
                              instant.get(DateTimeFieldType.dayOfWeek()),
                              instant.get(DateTimeFieldType.hourOfDay())));
     // print customer data
-    data.println(String.format("%.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f",
-                               produced, consumed, imbalance,
-                               offerUp, offerDown, useUp, useDown));
+    data.println(String.format("%s,%s,%s,%s,%s,%s,%s",
+                               df.format(produced),
+                               df.format(consumed),
+                               df.format(imbalance),
+                               df.format(offerUp),
+                               df.format(offerDown),
+                               df.format(useUp),
+                               df.format(useDown)));
     produced = 0.0;
     consumed = 0.0;
     imbalance = 0.0;

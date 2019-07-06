@@ -28,11 +28,11 @@ import org.powertac.common.BalancingTransaction;
 import org.powertac.common.Broker;
 import org.powertac.common.Competition;
 import org.powertac.common.TariffTransaction;
+import org.powertac.common.msg.SimEnd;
+import org.powertac.common.msg.SimStart;
 import org.powertac.common.msg.TimeslotUpdate;
 import org.powertac.common.repo.BrokerRepo;
 import org.powertac.logtool.LogtoolContext;
-import org.powertac.logtool.common.DomainObjectReader;
-import org.powertac.logtool.common.NewObjectListener;
 import org.powertac.logtool.ifc.Analyzer;
 
 /**
@@ -57,6 +57,9 @@ import org.powertac.logtool.ifc.Analyzer;
  * line per broker
  *  broker-name,c_broker,cr_broker,p_broker,pr_broker,i_broker,i_rms-broker,ir_broker
  * where the fields are per-broker versions of the aggregate data.
+ * 
+ * NOTE: Numeric data is formatted using the US locale in order to avoid confusion over
+ * the meaning of the comma character when used in other locales.
  * 
  * @author John Collins
  */
@@ -145,8 +148,11 @@ implements Analyzer
     data.print(String.format("%s,%d,",
                              Competition.currentCompetition().getName(),
                              hourlyData.size() - 1));
+    data.println("game-id,n_brokers,c_total,cr_total,p_total,pr_total,i_total,i_rms,ir_total");
     data.println(totals.formatWithRms(rms));
+    data.println();
 
+    data.println("broker,c,c_revenue,p,p_revenue,imb,imb_rms,imb_revenue");
     for (Broker broker : brokerRepo.findRetailBrokers()) {
       reportByBroker(broker);
     }
@@ -245,6 +251,17 @@ implements Analyzer
     aggregateData = new ArrayList<TimeslotData>();
   }
 
+  // catch SimStart and SimEnd messages
+  public void handleMessage (SimStart ss)
+  {
+    //System.out.println("Sim start");
+  }
+
+  public void handleMessage (SimEnd se)
+  {
+    //System.out.println("Sim end");
+  }
+
   // -------------------------------
   // catch BalancingTransactions
   // We assume there is at most one balancing tx per broker in each timeslot.
@@ -306,9 +323,14 @@ implements Analyzer
 
     public String formatWithRms (double rms)
     {
-      return String.format("%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f",
-                           consumption, income, production, expense,
-                           imbalance, rms, imbalanceCost);
+      return String.format("%s,%s,%s,%s,%s,%s,%s",
+                           df.format(consumption),
+                           df.format(income),
+                           df.format(production),
+                           df.format(expense),
+                           df.format(imbalance),
+                           df.format(rms),
+                           df.format(imbalanceCost));
     }
   }
 }

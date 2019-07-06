@@ -46,6 +46,9 @@ import org.powertac.logtool.ifc.Analyzer;
  * Otherwise, output starts with a list of customer names, followed by one
  * row/timeslot giving the timeslot index followed by net (production - consumption)
  * for each customer.
+ * 
+ * NOTE: Numeric data is formatted using the US locale in order to avoid confusion over
+ * the meaning of the comma character when used in other locales.
  *
  * Usage: CustomerProductionConsumption [-- single customer-name] input output
  *
@@ -184,15 +187,17 @@ implements Analyzer
                                instant.get(DateTimeFieldType.dayOfWeek()),
                                instant.get(DateTimeFieldType.hourOfDay())));
       // print customer usage, production
-      data.println(String.format("%.3f, %.3f", produced, used));
+      data.println(String.format("%s, %s", df.format(produced), df.format(used)));
       produced = 0.0;
       used = 0.0;
     }
     else {
       // iterate through the map
       for (CustomerInfo cust: customers) {
-        data.format("{'name':%s,'net':%.3f,'cost':%.3f},",
-                    cust.getName(), customerNet.get(cust), customerCost.get(cust));
+        data.format("{'name':%s,'net':%s,'cost':%s},",
+                    cust.getName(),
+                    df.format(customerNet.get(cust)),
+                    df.format(customerCost.get(cust)));
       }
       data.println();
       clearCustomerData();

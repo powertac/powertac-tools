@@ -43,6 +43,9 @@ import org.powertac.logtool.ifc.Analyzer;
  * followed by a pair of lines for each timeslot formatted as
  * Qty, timeslot, qty, qty, ...
  * Price, timeslot, price, price, ...
+ * 
+ * NOTE: Numeric data is formatted using the US locale in order to avoid confusion over
+ * the meaning of the comma character when used in other locales.
  *
  * @author John Collins
  */
@@ -132,14 +135,14 @@ implements Analyzer
       for (Iterator<OrderData> ods = offers.iterator();
           ods.hasNext();) {
         OrderData od = ods.next();
-        data.printf(", %.4f", od.quantity);
+        data.printf(", %s", df.format(od.quantity));
       }
       // prices
       data.printf("\nPrice, %d", timeslot);
       for (Iterator<OrderData> ods = offers.iterator();
           ods.hasNext();) {
         OrderData od = ods.next();
-        data.printf(", %.4f", od.price);
+        data.printf(", %s", df.format(od.price));
       }
       data.println();
     }

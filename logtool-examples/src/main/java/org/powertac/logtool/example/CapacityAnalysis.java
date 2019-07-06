@@ -40,6 +40,9 @@ import org.powertac.logtool.ifc.Analyzer;
  * and capacity cost for each assessment interval.
  * Output is one row for each assessment:
  *   timeslot, theshold, excess demand, capacity cost
+ * 
+ * NOTE: Numeric data is formatted using the US locale in order to avoid confusion over
+ * the meaning of the comma character when used in other locales.
  *
  * @author John Collins
  */
@@ -134,8 +137,11 @@ implements Analyzer
     // Do nothing unless the threshold > 0
     if (threshold == 0.0)
       return;
-    data.format("%d, %.3f, %.3f, %.3f\n",
-                timeslot, threshold, excessDemand, capacityCost);
+    data.format("%d, %s, %s, %s\n",
+                timeslot,
+                df.format(threshold),
+                df.format(excessDemand),
+                df.format(capacityCost));
     threshold = 0.0;
     excessDemand = 0.0;
     capacityCost = 0.0;

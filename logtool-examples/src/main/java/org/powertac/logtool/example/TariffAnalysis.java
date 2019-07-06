@@ -76,6 +76,9 @@ import org.powertac.logtool.ifc.Analyzer;
  * second section. The subscription-count is given as the mean value over the entire
  * game, the rest are sums.
  * 
+ * NOTE: Numeric data is formatted using the US locale in order to avoid confusion over
+ * the meaning of the comma character when used in other locales.
+ * 
  * Usage: TariffAnalysis [options] state-log-file output-data-file
  * 
  * @author John Collins
@@ -383,28 +386,29 @@ implements Analyzer
       output.format(" minDur=%dh", tariff.getMinDuration()/3600000);
     }
     if (tariff.getSignupPayment() != 0.0) {
-      output.format(" sgnup=%.3f", tariff.getSignupPayment());
+      output.format(" sgnup=%s", df.format(tariff.getSignupPayment()));
     }
     if (tariff.getEarlyWithdrawPayment() != 0.0) {
-      output.format(" wthdrw=%.3f", tariff.getEarlyWithdrawPayment());
+      output.format(" wthdrw=%s", df.format(tariff.getEarlyWithdrawPayment()));
     }
     if (tariff.getPeriodicPayment() != 0.0) {
-      output.format(" pp=%.3f", tariff.getPeriodicPayment());
+      output.format(" pp=%s", df.format(tariff.getPeriodicPayment()));
     }
 
     List<Rate> rates = tariff.getTariffSpecification().getRates();
     List<RegulationRate> rrs = tariff.getTariffSpecification().getRegulationRates();
     if (rates.size() == 1) {
       // Simple tariff, single rate
-      output.format(" fxp=%.3f", rates.get(0).getValue());
+      output.format(" fxp=%s", df.format(rates.get(0).getValue()));
     }
     else {
       dumpComplexRates(tariff);
     }
     if (rrs.size() > 0) {
       RegulationRate rr = rrs.get(0);
-      output.format(" upreg=%.3f dwnreg=%.3f",
-                    rr.getUpRegulationPayment(), rr.getDownRegulationPayment());
+      output.format(" upreg=%s dwnreg=%s",
+                    df.format(rr.getUpRegulationPayment()),
+                    df.format(rr.getDownRegulationPayment()));
     }
     output.println();
   }
@@ -417,8 +421,9 @@ implements Analyzer
       return;
     }
     if (tariff.isVariableRate()) {
-      output.format(" Variable: mean=%.3f, realized=%.3f",
-                    tariff.getMeanConsumptionPrice(), tariff.getRealizedPrice());
+      output.format(" Variable: mean=%s, realized=%s",
+                    df.format(tariff.getMeanConsumptionPrice()),
+                    df.format(tariff.getRealizedPrice()));
       return;
     }
     if (tariff.isWeekly()) {
@@ -473,16 +478,18 @@ implements Analyzer
     output.format("{'broker':'%s','ts':%d,'tariffId':%d,'powerType':'%s',",
                   tariff.getBroker().getUsername(), timeslot, tariff.getId(),
                   tariff.getPowerType().toString());
-    output.format("'minDuration':%d,'signup':%.3f,'withdraw':%.3f,'periodic':%.3f,",
-                  tariff.getMinDuration(), tariff.getSignupPayment(),
-                  tariff.getEarlyWithdrawPayment(), tariff.getPeriodicPayment());
+    output.format("'minDuration':%d,'signup':%s,'withdraw':%s,'periodic':%s,",
+                  tariff.getMinDuration(),
+                  df.format(tariff.getSignupPayment()),
+                  df.format(tariff.getEarlyWithdrawPayment()),
+                  df.format(tariff.getPeriodicPayment()));
     output.format("'tiered':%s,", tariff.isTiered()?"True":"False");
     output.format("'variable':%s,", tariff.isVariableRate()?"True":"False");
     double[] prices = getRateArray(tariff);
     output.print("'rate':");
     String delim = "[";
     for (double price: prices) {
-      output.format("%s%.3f", delim, price);
+      output.format("%s%s", delim, df.format(price));
       delim = ",";
     }
     output.print("],");
@@ -493,7 +500,8 @@ implements Analyzer
       upreg = rr.getUpRegulationPayment();
       downreg = rr.getDownRegulationPayment();
     }
-    output.format("'upReg':%.3f,'downReg':%.3f}\n", upreg, downreg);
+    output.format("'upReg':%s,'downReg':%s}\n",
+                  df.format(upreg), df.format(downreg));
   }
 
   private double[] getRateArray (Tariff tariff)
@@ -543,7 +551,7 @@ implements Analyzer
     output.print("[");
     String delim = "";
     for (int hr: hrPrices.keySet()) {
-      output.format("%s%d:%.3f", delim, hr, hrPrices.get(hr));
+      output.format("%s%d:%s", delim, hr, df.format(hrPrices.get(hr)));
       delim = " ";
     }      
     output.print("]");
@@ -765,31 +773,32 @@ implements Analyzer
       //if (!tariff.isActive())
       //  output.print(" (inactive)");
       if (fees != 0.0)
-        output.format(" fees=%.3f", fees);
-      output.format(" energy=%.3f earnings=%.3f", energy, energyEarnings);
+        output.format(" fees=%s", df.format(fees));
+      output.format(" energy=%s earnings=%s",
+                    df.format(energy), df.format(energyEarnings));
       if (balanceEnergy != 0.0 || balanceEarnings != 0.0)
-        output.format(" regulation=%.3f reg earnings=%.3f",
-                      balanceEnergy, balanceEarnings);
+        output.format(" regulation=%s reg earnings=%s",
+                      df.format(balanceEnergy), df.format(balanceEarnings));
       if (subChange > 0)
         output.format(" signups=%d", subChange);
       else if (subChange < 0)
         output.format(" withdrawals=%d", -subChange);
       output.format(" subscribers=%d", subscribers);
       if (staticEarnings != 0.0)
-        output.format(" cust fees=%.3f", staticEarnings);
+        output.format(" cust fees=%s", df.format(staticEarnings));
       output.println();
     }
 
     void printFinalSummary ()
     {
       output.format("%d %s", tariff.getId(), tariff.getPowerType().toString());
-      output.format(" fees=%.3f", totalFees);
-      output.format(" energy=%.3f, earnings=%.3f",
-                    totalEnergy, totalEnergyEarnings);
-      output.format(" regulation=%.3f, reg earnings=%.3f",
-                    totalBalanceEnergy, totalBalanceEarnings);
+      output.format(" fees=%s", df.format(totalFees));
+      output.format(" energy=%s, earnings=%s",
+                    df.format(totalEnergy), df.format(totalEnergyEarnings));
+      output.format(" regulation=%s, reg earnings=%s",
+                    df.format(totalBalanceEnergy), df.format(totalBalanceEarnings));
       output.format(" subscribers=%d", subscribers);
-      output.format(" cust fees=%.3f", totalStaticEarnings);
+      output.format(" cust fees=%s", df.format(totalStaticEarnings));
       output.println();
     }
   }

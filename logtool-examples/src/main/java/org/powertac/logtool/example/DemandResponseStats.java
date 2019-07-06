@@ -38,6 +38,9 @@ import org.powertac.logtool.ifc.Analyzer;
  * For each timeslot, prints a record
  * ts,hod,dow,upreg-avail,upreg-used,downreg-avail,downreg-used,
  * total-imbalance,unsatisfied-imbalance,settlement-cost
+ * 
+ * NOTE: Numeric data is formatted using the US locale in order to avoid confusion over
+ * the meaning of the comma character when used in other locales.
  *
  * Usage: DemandResponseStats input output
  *
@@ -49,11 +52,8 @@ implements Analyzer
 {
   //static private Logger log = LogManager.getLogger(DemandResponseStats.class.getName());
 
-  //private TimeslotRepo timeslotRepo;
-  private Competition competition;
-
   // data collectors for current timeslot
-  private int timeslot = 360; // first timeslot of sim session under tournament conditions
+  private int timeslot = 0;
   private double upCapacity = 0.0;
   private double downCapacity = 0.0;
   private double upUsed = 0.0;
@@ -113,8 +113,6 @@ implements Analyzer
     catch (FileNotFoundException e) {
       e.printStackTrace();
     }
-    //timeslotRepo = (TimeslotRepo) getBean("timeslotRepo");
-    competition = Competition.currentCompetition();
   }
 
   @Override
@@ -139,13 +137,16 @@ implements Analyzer
     if (!started)
       return;
      // print timeslot,dow,hod,upcap,upuse,dncap,dnuse,imbalance,cost
-      data.print(String.format("%d,%d,%d,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f\n",
+      data.print(String.format("%d,%d,%d,%s,%s,%s,%s,%s,%s\n",
                                timeslot,
                                instant.get(DateTimeFieldType.dayOfWeek()),
                                instant.get(DateTimeFieldType.hourOfDay()),
-                               upCapacity, upUsed,
-                               downCapacity, downUsed,
-                               imbalance, settlementCost));
+                               df.format(upCapacity),
+                               df.format(upUsed),
+                               df.format(downCapacity),
+                               df.format(downUsed),
+                               df.format(imbalance),
+                               df.format(settlementCost)));
       upCapacity = 0.0;
       upUsed = 0.0;
       downCapacity = 0.0;
@@ -162,7 +163,8 @@ implements Analyzer
         skip -= 1;
       else
         summarizeTimeslot(msg.getPostedTime());
-        timeslot = msg.getFirstEnabled() - competition.getDeactivateTimeslotsAhead();
+        timeslot = msg.getFirstEnabled()
+                - Competition.currentCompetition().getDeactivateTimeslotsAhead();
   }
 
   // catch RegulationCapacity messages

@@ -71,6 +71,9 @@ import org.powertac.logtool.ifc.Analyzer;
  * followed by the broker's CashPosition. Line continues with the next broker
  * unless the per-broker option is given.
  * 
+ * NOTE: Numeric data is formatted using the US locale in order to avoid confusion over
+ * the meaning of the comma character when used in other locales.
+ * 
  * Usage: BrokerAccounting [--per-broker] state-log-filename output-data-filename
  * 
  * @author John Collins
@@ -89,7 +92,6 @@ implements Analyzer
   private List<Broker> brokerList;
   private HashMap<Broker, TreeMap<Integer, ArrayList<MarketTransaction>>> data;
   private HashMap<Broker, BrokerData> brokerData;
-  private DecimalFormat df;
 
   private boolean started = false;
   private boolean firstTx = false;
@@ -122,9 +124,6 @@ implements Analyzer
       return;
     }
     dataFilename = args[1 + offset];
-    df = (DecimalFormat)NumberFormat.getInstance(Locale.US);
-    df.setMaximumFractionDigits(4);
-    df.setGroupingUsed(false);
     super.cli(args[offset], this);
   }
 

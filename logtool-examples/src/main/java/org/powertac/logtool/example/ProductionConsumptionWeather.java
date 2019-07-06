@@ -40,6 +40,9 @@ import org.powertac.logtool.ifc.Analyzer;
  *   timeslot index, day of week, hour of day,
  *   total production, total consumption,
  *   temperature, wind speed, sky cover
+ * 
+ * NOTE: Numeric data is formatted using the US locale in order to avoid confusion over
+ * the meaning of the comma character when used in other locales.
  *
  * @author John Collins
  */
@@ -158,13 +161,14 @@ implements Analyzer
                              instant.get(DateTimeFieldType.dayOfWeek()),
                              instant.get(DateTimeFieldType.hourOfDay())));
     // print customer production, consumption, 
-    data.print(String.format("%.3f, %.3f, ",
-                             produced, used));
+    data.print(String.format("%s, %s, ",
+                             df.format(produced), df.format(used)));
     // look up the weather report, print the data
     WeatherReport wr = weatherReports.get(timeslot);
-    data.println(String.format("%.3f, %.3f, %.3f",
-                               wr.getTemperature(), wr.getWindSpeed(),
-                               wr.getCloudCover()));
+    data.println(String.format("%s, %s, %s",
+                               df.format(wr.getTemperature()),
+                               df.format(wr.getWindSpeed()),
+                               df.format(wr.getCloudCover())));
     weatherReports.remove(timeslot);
     produced = 0.0;
     used = 0.0;

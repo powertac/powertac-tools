@@ -18,7 +18,10 @@ package org.powertac.logtool.example;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;
+import java.text.DecimalFormat;
+import java.text.NumberFormat;
 import java.util.HashMap;
+import java.util.Locale;
 
 import org.powertac.common.Broker;
 import org.powertac.common.repo.BrokerRepo;
@@ -37,6 +40,9 @@ import org.powertac.logtool.ifc.Analyzer;
  * including market transactions, balancing transactions, distribution
  * transactions, capacity transactions, and bank transactions. Produces a
  * summary report giving the totals of these categories for each broker.
+ * 
+ * NOTE: Numeric data is formatted using the US locale in order to avoid confusion over
+ * the meaning of the comma character when used in other locales.
  *
  * @author John Collins
  */
@@ -80,7 +86,6 @@ implements Analyzer
 
   /**
    * Takes at least two args, input filename and output filename.
-   * The --by-broker option changes the output format.
    */
   private void cli (String[] args)
   {
@@ -120,13 +125,13 @@ implements Analyzer
     data.println(String.format("Game %s", gameId));
     data.println("broker-name, market, balancing, distribution, capacity, bank");
     for (Broker broker: brokerMkt.keySet()) {
-      data.println(String.format("%s, %.3f, %.3f, %.3f, %.3f, %.3f",
+      data.println(String.format("%s, %s, %s, %s, %s, %s",
                                  broker.getUsername(),
-                                 brokerMkt.get(broker),
-                                 brokerBal.get(broker),
-                                 brokerDist.get(broker),
-                                 brokerCap.get(broker),
-                                 brokerBank.get(broker)));
+                                 df.format(brokerMkt.get(broker)),
+                                 df.format(brokerBal.get(broker)),
+                                 df.format(brokerDist.get(broker)),
+                                 df.format(brokerCap.get(broker)),
+                                 df.format(brokerBank.get(broker))));
     }
     data.close();
   }

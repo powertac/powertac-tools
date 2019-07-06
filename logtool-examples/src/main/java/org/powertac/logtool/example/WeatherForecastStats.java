@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012 by the original author
+ * Copyright (c) 2012-2019 by the original author
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,6 +35,9 @@ import org.powertac.logtool.ifc.Analyzer;
  * for temperature data and one for wind data. Each file consists of lines
  * with the following format
  * timeslot obs fc-1 fc-2 ... fc-24
+ * 
+ * NOTE: Numeric data is formatted using the US locale in order to avoid confusion over
+ * the meaning of the comma character when used in other locales.
  * 
  * Invoke as WeatherForecastStats 
  * 
@@ -112,14 +115,14 @@ implements Analyzer
   public void report ()
   {
     for (Element el : data) {
-      wind.format("%d %.3f ", el.timeslot, el.reportedWind);
+      wind.format("%d %s ", el.timeslot, df.format(el.reportedWind));
       for (double fcw : el.forecastWind) {
-        wind.format("%.3f ", fcw);
+        wind.format("%s ", df.format(fcw));
       }
       wind.println();
-      temp.format("%d %.3f ", el.timeslot, el.reportedTemp);
+      temp.format("%d %s ", el.timeslot, df.format(el.reportedTemp));
       for (double fct : el.forecastTemp) {
-        temp.format("%.3f ", fct);
+        temp.format("%s ", df.format(fct));
       }
       temp.println();
     }
