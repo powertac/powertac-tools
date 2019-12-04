@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 '''
 Reads files produced by the BrokerAccounting logtool, pulls apart debit/credit
-data, generates plots.
+data, generates plots. Plots are generated in a
 
 Requires a Python 3 installation with SciPy/NumPy libraries.
 Assumes BrokerAccounting tool is built in parallel directory ../logtool-examples
@@ -114,8 +114,8 @@ def getItemOffsets (header):
 def brokerDistributions (title, factor, saveAs = ''):
     '''
     Plots distributions of a factor across brokers.
-    Factor can be one of the keys in the broker accounting table
-    or one of the sums defined above'''
+    Factor can be one of the keys in the scaledColumns list,
+    or one of the keys in the sums table defined above'''
 
     data = [v[factor]
             for k,v in brokerSummaries.items()
@@ -137,7 +137,7 @@ def brokerDistributions (title, factor, saveAs = ''):
         pp.savefig(plotDir + '/' + saveAs + '.svg', transparent=True)
 
 def factorDistributions (title, broker,
-                         factors = ['ttx-s', 'ttx-u', 'mtx', 'ctx', 'btx', 'bank'],
+                         factors = ['ttx-s', 'ttx-u', 'mtx', 'ctx', 'btx', 'bce', 'bank'],
                          yLimit = [],
                          saveAs = ''):
     '''
@@ -165,4 +165,11 @@ def factorDistributions (title, broker,
         pp.savefig(plotDir + '/' + saveAs + '.png', transparent=True)
         pp.savefig(plotDir + '/' + saveAs + '.svg', transparent=True)
 
+# The following requires that
+# a. the logtool-examples module has been built (mvn clean test), and
+# b. both this directory (powertac-tools/python-scripts) and the
+#    parallel directory powertac-tools/logtool examples contain symlinks to
+#    a directory finals-2018 where the downloaded logs will be downloaded
+#    and extracted, and where the data files will be created.
+#
 # collectData('file:./finals-2018/finals_2018_07.games_.csv', 'finals-2018')
