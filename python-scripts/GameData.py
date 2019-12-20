@@ -80,11 +80,13 @@ class GameData:
                   'residualImbalance': 'drs',
                   'imbalanceCost': 'drs'}
 
-    tournamentUrl = {'2018': 'file:./finals-2018/finals_2018_07.games_.csv',
+    tournamentUrl = {'2019': 'file:./finals-2019/finals_2019_07.games_.csv',
+                     '2018': 'file:./finals-2018/finals_2018_07.games_.csv',
                      '2017': 'file:./finals-2017/finals_2017_06.games.csv',
                      '2016': 'file:./finals-2016/finals_2016_07.games.csv'}
 
-    tournamentDir = {'2018': 'finals-2018',
+    tournamentDir = {'2019': 'finals-2019,
+                     '2018': 'finals-2018',
                      '2017': 'finals-2017',
                      '2016': 'finals-2016'}
 
@@ -223,7 +225,7 @@ class GameData:
 
     def imputeBootData (self):
         '''
-        Generates "fake" boot data by sampling the game data at 
+        Generates "fake" boot data by sampling the game data at intervals
         '''
         self.ensureGameData()
         self.bootData = []

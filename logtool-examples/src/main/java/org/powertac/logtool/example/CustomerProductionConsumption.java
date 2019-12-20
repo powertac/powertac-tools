@@ -119,6 +119,7 @@ implements Analyzer
       }
     }
     dataFilename = args[1 + offset];
+    //System.out.println("input: " + args[offset]);
     super.cli(args[offset], this);
   }
 
@@ -264,6 +265,7 @@ implements Analyzer
   public void handleMessage (CustomerInfo ci)
   {
     if (single && customerName.equals(ci.getName())) {
+      //System.out.println("Found " + customerName);
       customer = ci;
     }
   }

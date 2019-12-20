@@ -17,9 +17,12 @@ from pathlib import Path
 
 def logIter (tournamentURL, tournamentDir):
     '''
+    **Deprecated**
     Returns a generator of log dirs extracted from a directory
     of compressed game logs, downloading them first if necessary.
-    Each dir will contain the state log, trace log, and boot.xml file
+    Each dir will contain the state log, trace log, and boot.xml file.
+    To use this, you need a file games.txt in the data dir that contains
+    the filenames of the compressed log files.
     '''
     games = open(os.path.join(tournamentDir, "games.txt"), 'r')
     return (extractLog(tournamentURL, game.rstrip(), tournamentDir)
@@ -34,7 +37,7 @@ def csvIter (tournamentCsvUrl, dirPath):
     '''
     content = urllib.request.urlopen(tournamentCsvUrl)
     gameList = io.StringIO(content.read().decode('utf-8'))    
-    csvReader = csv.DictReader(gameList, delimiter=',')
+    csvReader = csv.DictReader(gameList, delimiter=';')
     return(extractLogs(row['logUrl'], row['gameId'],
                        re.search('/([^/]+)$', row['logUrl']).group(1),
                        dirPath)
