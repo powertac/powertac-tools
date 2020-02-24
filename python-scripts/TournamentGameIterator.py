@@ -70,7 +70,11 @@ def extractLogs (url, game, tarname, dirPath):
         tar.close
     os.chdir(currentDir)
 
-    # find the actual paths to the boot and sim logs
+    # find the actual paths to the boot and sim logs and xml boot record
+    bootxml = ''
+    gameDir = Path(dirPath, gameDirPath)
+    for file in gameDir.glob('*.xml'):
+        bootxml = file
     bootDir = Path(dirPath, gameDirPath, 'boot-log')
     bootfile = ''
     simDir = Path(dirPath, gameDirPath, 'log')
@@ -82,4 +86,7 @@ def extractLogs (url, game, tarname, dirPath):
         if (not str(file).endswith('init.state')):
             simfile = file
     
-    return {'gameId': game, 'boot': str(bootfile), 'sim':str(simfile)}
+    return {'gameId': game,
+            'boot': str(bootfile),
+            'sim':str(simfile),
+            'bootRecord':str(bootxml)}

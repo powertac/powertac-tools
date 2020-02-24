@@ -2,6 +2,8 @@
 Holder for game data, including sim and boot data. Aggregates data by
 game, by week, by day, by weekday, by weekend-day. Allows retrieval by
 name.
+
+Currently does not handle csv files directly, needs comma separators.
 '''
 
 from pathlib import Path
@@ -41,7 +43,8 @@ class GameData:
                           'upregAvail': 'upa',
                           'upregUsed': 'upu',
                           'downregAvail': 'dna',
-                          'downregUsed': 'dnu'}
+                          'downregUsed': 'dnu',
+                          'imbPriceRatio': 'ratio'}
 
 
     # data-type parameters
@@ -66,7 +69,9 @@ class GameData:
                     'residualImbalance':
                     'org.powertac.logtool.example.DemandResponseStats',
                     'imbalanceCost':
-                    'org.powertac.logtool.example.DemandResponseStats'}
+                    'org.powertac.logtool.example.DemandResponseStats',
+                    'imbalanceCostRatio':
+                    'org.powertac.logtool.example.ImbalanceCostAnalysis}
     dataDir = 'data'
     dataPrefix = {'net-demand': 'pc',
                   'consumption': 'pc',
@@ -78,7 +83,8 @@ class GameData:
                   'upregCapacity': 'drs',
                   'downregCapacity': 'drs',
                   'residualImbalance': 'drs',
-                  'imbalanceCost': 'drs'}
+                  'imbalanceCost': 'drs',
+                  'imbalanceCostRatio': 'ica'}
 
     tournamentUrl = {'2019': 'file:./finals-2019/finals_2019_07.games_.csv',
                      '2018': 'file:./finals-2018/finals_2018_07.games_.csv',

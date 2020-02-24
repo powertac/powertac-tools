@@ -29,6 +29,7 @@ import org.joda.time.DateTimeFieldType;
 import org.joda.time.Instant;
 import org.powertac.common.CustomerInfo;
 import org.powertac.common.RegulationCapacity;
+import org.powertac.common.Tariff;
 import org.powertac.common.TariffSpecification;
 import org.powertac.common.TariffSubscription;
 import org.powertac.common.TariffTransaction;
@@ -175,18 +176,18 @@ implements Analyzer
 
     if (!dataInit) {
       // first time through nothing to but print header
-      data.println("slot, dow, hod, prod, cons, imb, offer-up, offer-down, use-up, use-down");
+      data.println("slot; dow; hod; prod; cons; imb; offer-up; offer-down; use-up; use-down");
       dataInit = true;
       return;
     }
 
-    // print timeslot, dow, hod,
-    data.print(String.format("%d,%d,%d,",
+    // print timeslot; dow; hod;
+    data.print(String.format("%d;%d;%d;",
                              timeslot,
                              instant.get(DateTimeFieldType.dayOfWeek()),
                              instant.get(DateTimeFieldType.hourOfDay())));
     // print customer data
-    data.println(String.format("%s,%s,%s,%s,%s,%s,%s",
+    data.println(String.format("%s;%s;%s;%s;%s;%s;%s",
                                df.format(produced),
                                df.format(consumed),
                                df.format(imbalance),
@@ -218,8 +219,14 @@ implements Analyzer
     if (null != powerType && tx.getTariffSpec().getPowerType() != powerType)
       return;
 
-    if (withBO && !boTariffIds.contains(tx.getTariffSpec().getId()))
-      return;
+    if (withBO) {
+      if (!boTariffIds.contains(tx.getTariffSpec().getId())) {
+        if (tx.getTxType() == TariffTransaction.Type.SIGNUP
+                && tx.getTariffSpec().hasRegulationRate()) {
+          boTariffIds.add(tx.getTariffSpec().getId());
+        }
+      }
+    }
 
     if (!tx.isRegulation()) {
       // normal production/consumption
@@ -230,7 +237,7 @@ implements Analyzer
         produced += tx.getKWh();
       }
     }
-    else {
+    else if (!withBO || boTariffIds.contains(tx.getTariffSpec().getId())) {
      // regulation 
       if (tx.getTxType() == TariffTransaction.Type.CONSUME) {
         useDown += tx.getKWh();
@@ -244,13 +251,15 @@ implements Analyzer
   // RegulationCapacity is associated with TariffSubscriptions
   public void handleMessage (RegulationCapacity rc)
   {
+    TariffSpecification spec =
+            tariffRepo.findSpecificationById(rc.getSubscription().getTariffId());
     // filter by powerType
-    if (null != powerType) {
-      TariffSpecification spec =
-              tariffRepo.findSpecificationById(rc.getSubscription().getTariffId());
-      if (spec.getPowerType().canUse(powerType)) {
-        return;
-      }
+    if (null != powerType && !spec.getPowerType().canUse(powerType)) {
+      return;
+    }
+
+    if (withBO && !boTariffIds.contains(spec.getId())) {
+      return;
     }
 
     offerUp += rc.getUpRegulationCapacity();
@@ -274,11 +283,13 @@ implements Analyzer
   // catch SimStart and SimEnd messages
   public void handleMessage (SimStart ss)
   {
+    System.out.println("Sim start");
     started = true;
   }
 
   public void handleMessage (SimEnd se)
   {
+    System.out.println("Sim end");
     report();
   }
 
