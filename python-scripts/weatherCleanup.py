@@ -72,6 +72,7 @@ def extractReports (inputFile, outputFile, location, start, end):
                         data = [time, obs.get('tempC'), obs.get('dewpointC'),
                                 obs.get('pressureMB'), obs.get('windKPH')]
                         if missingRowCount > 0:
+                            print("{} missing rows", missingRowCount)
                             missingRows = interpolate(missingRowCount,
                                                       lastGoodRow, data)
                             for row in missingRows:

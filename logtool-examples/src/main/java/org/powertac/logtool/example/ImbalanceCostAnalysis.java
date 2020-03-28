@@ -161,7 +161,7 @@ implements Analyzer
     // finally, look up the broker repo and print the header to the output file
     //brokerRepo = (BrokerRepo)getBean("brokerRepo");
     balancingTxs = new ArrayList<>();
-    data.println("ts; imb; imb-price; ratio");
+    data.println("ts; mbp; imb; imb-price; ratio");
     started = false;
   }
 
@@ -213,8 +213,8 @@ implements Analyzer
       ratio = (perKWH - 2.0 * meanBootPrice) / (-1.0 * meanBootPrice);
     }
     // print the per-timeslot record
-    data.format("%d; %.4f; %.4f; %.5f\n",
-                timeslot, balanceReport.getNetImbalance(),
+    data.format("%d; %.4f; %.4f; %.6f; %.5f\n",
+                timeslot, meanBootPrice, balanceReport.getNetImbalance(),
                 perKWH, ratio);
     // clean up for next timeslot
     balancingTxs.clear();

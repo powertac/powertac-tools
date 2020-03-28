@@ -19,6 +19,9 @@ upregRatios = []
 upregMeans = []
 downregRatios = []
 downregMeans = []
+priceOffset = 0.0
+epsilon = .00001
+forceExtract = False
 perGame = True
 
 # --- data collection ---
@@ -30,22 +33,30 @@ def collectData (tournamentCsvUrl, tournamentDir):
     for f in TLP.dataFileIter(tournamentCsvUrl,
                              tournamentDir,
                              'org.powertac.logtool.example.ImbalanceCostAnalysis',
-                             'ica'):
+                             'ica', force=forceExtract):
         processGame(f['path'])
         #count = count - 1
         #if count < 0:
         #    break
 
 def processGame (filepath):
+    ''' input file formatted as csv with columns
+        timeslot; mean-boot-price; imbalance; imbalance-price; ratio
+    '''
     datafile = open(filepath, 'r')
     reader = csv.reader(datafile, delimiter=';')
     headers = next(reader)
     for row in reader:
         #print(row)
-        if float(row[1]) < 0:
-            upregRatios.append(float(row[3]))
+        mbp = float(row[1])
+        price = float(row[3])
+        ratio = float(row[4])
+        if float(row[2]) < 0:
+            ratio = (price + priceOffset) / -mbp
+            upregRatios.append(ratio)
         else:
-            downregRatios.append(float(row[3]))
+            ratio = (price - priceOffset - 2 * mbp)/ -mbp
+            downregRatios.append(ratio)
     #upregDesc = stats.describe(upregRatios)
     #downregDesc = stats.describe(downregRatios)
     #print(filepath)
@@ -71,4 +82,6 @@ def plotHistogram ():
 
 # uncomment to execute directly
 perGame = True
+priceOffset = 0.0
 collectData('file:./finals-2019/finals_2019_07.games_.csv', 'finals-2019')
+plotHistogram()
