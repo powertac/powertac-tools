@@ -70,6 +70,7 @@ implements Analyzer
   private int timeslot = 0;
   private PrintWriter output = null;
   private String dataFilename = "broker-market-price.data";
+  private double epsilon = 1.0e-4;
   
   /**
    * Main method just creates an instance and passes command-line args to
@@ -154,8 +155,11 @@ implements Analyzer
           }
         }
       }
-      if (0 != mwh) {
+      if (Math.abs(mwh) > epsilon) {
         price = money / Math.abs(mwh);
+      }
+      else {
+        mwh = 0.0;
       }
       output.format(", [%.4f, %.4f]", mwh, price);
     }

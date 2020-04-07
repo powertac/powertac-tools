@@ -653,13 +653,13 @@ implements Analyzer
     }
 
     @Override
-    public double getPPlusPrime ()
+    public Double getPPlusPrime ()
     {
       return pPlusPrime;
     }
 
     @Override
-    public double getPMinusPrime ()
+    public Double getPMinusPrime ()
     {
       return pMinusPrime;
     }
@@ -671,19 +671,19 @@ implements Analyzer
     }
 
     @Override
-    public double getDefaultSpotPrice ()
+    public Double getDefaultSpotPrice ()
     {
       return defaultSpotPrice;
     }
 
     @Override
-    public double getPPlus ()
+    public Double getPPlus ()
     {
       return traceData.getPPlus();
     }
 
     @Override
-    public double getPMinus ()
+    public Double getPMinus ()
     {
       return traceData.getPMinus();
     }
