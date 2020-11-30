@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 '''
-Extracts and charactierizes the ratios of
+Extracts and characterizes the ratios of
   balancing-market-clearing-price / bootstrap-market-price
 for all the games in a tournament.
 '''

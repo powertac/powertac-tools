@@ -9,8 +9,8 @@ Initially this directory must exist.
 '''
 # Uses Python 3.4 or later
 
-import re, os, tarfile, subprocess
-import urllib.request
+import re, os, shutil, tarfile, subprocess
+import urllib
 import requests, csv
 import io
 from pathlib import Path
@@ -60,14 +60,21 @@ def extractLogs (url, game, tarname, dirPath):
     gameDirPath = game
     if not os.path.isdir(gameDirPath):
         os.mkdir(gameDirPath)
-        os.chdir(gameDirPath)
+    os.chdir(gameDirPath)
+    # check for existing download
+    if not os.path.exists(tarname):
         g = urllib.request.urlopen(url)
         with open(tarname, 'wb') as f:
             f.write(g.read())
-        
+    else:
+        print("download", tarname, "exists")
+    if not os.path.exists("./log"):
         tar = tarfile.open(tarname)
         tar.extractall()
         tar.close
+    else:
+        print("logs for game", game, "exists")
+
     os.chdir(currentDir)
 
     # find the actual paths to the boot and sim logs and xml boot record
@@ -90,3 +97,29 @@ def extractLogs (url, game, tarname, dirPath):
             'boot': str(bootfile),
             'sim':str(simfile),
             'bootRecord':str(bootxml)}
+
+def csvClearDecompressed (tournamentCsvUrl, dirPath):
+    '''
+    Clears out the docompressed files from a tournament set to conserve
+    disk space'''
+    content = urllib.request.urlopen(tournamentCsvUrl)
+    gameList = io.StringIO(content.read().decode('utf-8'))
+    csvReader = csv.DictReader(gameList, delimiter=';')
+    for row in csvReader:
+        cleanLogs(row['gameId'],
+                  re.search('/([^/]+)$', row['logUrl']).group(1),
+                  dirPath)
+
+def cleanLogs (game, tarname, dirPath):
+    '''
+    clears out boot and sim logs for a single game'''
+    # switch to tournament dir
+    currentDir = os.getcwd()
+    os.chdir(dirPath)
+
+    # Nothing to do if the game dir does not exist
+    gameDirPath = game
+    if os.path.isdir(gameDirPath):
+        shutil.rmtree(Path(gameDirPath, 'log'), ignore_errors = True)
+        shutil.rmtree(Path(gameDirPath, 'boot-log'), ignore_errors = True)
+    os.chdir(currentDir)

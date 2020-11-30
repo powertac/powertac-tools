@@ -68,6 +68,11 @@ def iterate (url, tournamentDir, extractorClass, dataPrefix, options, force=Fals
                              extractorClass, dataPrefix,
                              options, force=force):
         print(data)
+
+def errorCheck (csvurl, tournamentDir)
+    for log in ti.csviter(csvurl, tournamentDir):
+        subprocess.check_output(['grep', 'ERROR',
+                                 str(log['sim']).replace('state', 'trace')
     
 
 def main ():
