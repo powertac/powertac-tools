@@ -28,7 +28,7 @@ def logIter (tournamentURL, tournamentDir):
     return (extractLog(tournamentURL, game.rstrip(), tournamentDir)
             for game in games)
 
-def csvIter (tournamentCsvUrl, dirPath):
+def csvIter (tournamentCsvUrl, dirPath, target):
     '''
     Reads the tournament summary spreadsheet, extracts game IDs and URLs,
     downloads and unpacks the game logs if necessary.
@@ -40,11 +40,11 @@ def csvIter (tournamentCsvUrl, dirPath):
     csvReader = csv.DictReader(gameList, delimiter=';')
     return(extractLogs(row['logUrl'], row['gameId'],
                        re.search('/([^/]+)$', row['logUrl']).group(1),
-                       dirPath)
+                       dirPath, target)
            for row in csvReader)
 
 
-def extractLogs (url, game, tarname, dirPath):
+def extractLogs (url, game, tarname, dirPath, target):
     '''
     Extracts logs from compressed game log file, if not already extracted.
     Returns the name of a directory inside tournamentDir that contains two
@@ -52,6 +52,12 @@ def extractLogs (url, game, tarname, dirPath):
     the state and trace logs. Returns the paths to the boot and sim logs as
     a dict of the form {'gameId': id, 'boot':bootlog, 'sim':simlog}.
     '''
+    # don't do anything if the target path exists
+    targetPath = target + game + '.csv'
+    print('target =', targetPath)
+    if os.path.exists(targetPath):
+        print('target', targetPath, 'exists')
+        return {'gameId': game, 'boot': '', 'sim': '', 'path': targetPath}
     # make sure we have the bundle locally
     currentDir = os.getcwd()
     os.chdir(dirPath)
@@ -73,7 +79,7 @@ def extractLogs (url, game, tarname, dirPath):
         tar.extractall()
         tar.close
     else:
-        print("logs for game", game, "exists")
+        print("logs for game", game, "exist")
 
     os.chdir(currentDir)
 
@@ -95,8 +101,8 @@ def extractLogs (url, game, tarname, dirPath):
     
     return {'gameId': game,
             'boot': str(bootfile),
-            'sim':str(simfile),
-            'bootRecord':str(bootxml)}
+            'sim': str(simfile),
+            'bootRecord': str(bootxml)}
 
 def csvClearDecompressed (tournamentCsvUrl, dirPath):
     '''

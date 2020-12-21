@@ -54,6 +54,7 @@ sums = {'ttx-s': ('ttx-sc', 'ttx-sd'),
 def processGame (filepath):
     datafile = open(filepath, 'r')
     brokerdata = {}
+    badFile = False
     # first line is heading
     header = datafile.readline().strip().split(',')
     brokerOffsets = getBrokerOffsets(header)
@@ -68,7 +69,12 @@ def processGame (filepath):
                 key = header[bi + v]
                 if key not in brokerdata[broker]:
                     brokerdata[broker][key] = []
-                brokerdata[broker][key].append(float(row[bi + v]))
+                value = float(row[bi + v])
+                if value > 1e9:
+                    badFile = True
+                    print("Bad file", filepath)
+                    return
+                brokerdata[broker][key].append(value)
     for bk, data in brokerdata.items():
         if bk not in brokerSummaries:
             brokerSummaries[bk] = {}

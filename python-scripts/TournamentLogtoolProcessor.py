@@ -60,7 +60,8 @@ def dataFileIter (tournamentCsvUrl, tournamentDir, extractorClass, dataPrefix,
                         extractorClass, dataPrefix,
                         extractorOptions, logtoolDir,
                         dataDir = tournamentDir + '/data', force=force)
-            for log in ti.csvIter(tournamentCsvUrl, tournamentDir))
+            for log in ti.csvIter(tournamentCsvUrl, tournamentDir,
+                                  target = tournamentDir + '/data/' + dataPrefix))
 
 
 def iterate (url, tournamentDir, extractorClass, dataPrefix, options, force=False):
@@ -69,10 +70,10 @@ def iterate (url, tournamentDir, extractorClass, dataPrefix, options, force=Fals
                              options, force=force):
         print(data)
 
-def errorCheck (csvurl, tournamentDir)
+def errorCheck (csvurl, tournamentDir):
     for log in ti.csviter(csvurl, tournamentDir):
         subprocess.check_output(['grep', 'ERROR',
-                                 str(log['sim']).replace('state', 'trace')
+                                 str(log['sim']).replace('state', 'trace')])
     
 
 def main ():
