@@ -48,18 +48,24 @@ import org.powertac.logtool.ifc.Analyzer;
  * Example analysis class.
  * Gathers production, consumption, and balancing data in kWh for all customers,
  * or for a list of named customers, or for all customers of a given PowerType.
- * Output is one row per timeslot:
- *   ts, dow, hod, total production, total consumption, total imbalance,
- *   offered upreg, offered downreg, used upreg, used downreg
- *
- * Usage: CustomerBalancingCapacity
- *     [--customer-names n1,n2,...] ||
- *     [--power-type pt] ||
- *     [--with-bo]
- *     customer-name input output
- * where the options are filters on the data that's collected. Only one option
- * is allowed.
+ * <p>
  * 
+ * Usage: CustomerBalancingCapacity
+ *     [--power-type pt]
+ *     [--with-bo]
+ *     [--customer-names n1,n2,...]
+ *     input output<br/>
+ * where the options are filters on the data that's collected.
+ * If --power-type is given, then only customers of that power-type are
+ * included.
+ * If --with-bo is given, then only customers affected by balancing orders
+ * are included.
+ * Currently the --customer-names option is not implemented.
+ *
+ * Output is one row per timeslot:<br/>
+ *   ts, dow, hod, total production, total consumption, total imbalance,
+ *   offered upreg, offered downreg, used upreg, used downreg<br/>
+
  * NOTE: Numeric data is formatted using the US locale in order to avoid confusion over
  * the meaning of the comma character when used in other locales.
  *
@@ -76,7 +82,7 @@ implements Analyzer
 
   // customer data
   //private String gameId = null;
-  private List<String> customerNames = new ArrayList<>();
+  private String[] customerNames = null;
   private Set<CustomerInfo> namedCustomers = null;
   private PowerType powerType = null;
   private boolean withBO = false;
@@ -118,22 +124,35 @@ implements Analyzer
   
   /**
    * Takes at least two args, input filename and output filename.
-   * The --power-type and customer-names options apply filters to data collection.
+   * The --power-type and customer-names options apply filters
+   * to data collection. The with-bo option only includes customers
+   * subscribed to tariffs with RegulationRates.
    */
   private void cli (String[] args)
   {
     int offset = 0;
-    if (args.length == 4 && "--power-type".equals(args[0])) {
-      powerType = PowerType.valueOf(args[1]);
-      offset = 2;
+    int remainingArgs = args.length;
+    while (remainingArgs > 2) {
+      if (remainingArgs >= 4 && "--customer-names".equals(args[offset])) {
+        customerNames = args[offset + 1].split(",");
+        offset += 2;
+        remainingArgs -= 2;
+      }
+      else if (remainingArgs >= 4 && "--power-type".equals(args[offset])) {
+        powerType = PowerType.valueOf(args[offset + 1]);
+        offset += 2;
+        remainingArgs -= 2;
+      }
+      else if (remainingArgs >= 3 && "--with-bo".equals(args[offset])) {
+        withBO = true;
+        boTariffIds = new HashSet<>();
+        offset += 1;
+        remainingArgs -= 1;
+      }
     }
-    else if (args.length == 3 && "--with-bo".equals(args[0])) {
-      withBO = true;
-      boTariffIds = new HashSet<>();
-      offset = 1;
-    }
-    else if (args.length != 2) {
-      System.out.println("Usage: <analyzer> [--customer-names n1,... || --power-type pt] input output");
+    if (remainingArgs != 2) {
+      //System.out.println("Usage: <analyzer> [--customer-names n1,... || --power-type pt] input output");
+      System.out.println("Usage: <analyzer> [--with-bo --power-type pt --customer-names n1,n2,...] input output");
       return;
     }
     dataFilename = args[offset + 1];

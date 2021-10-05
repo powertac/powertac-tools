@@ -54,7 +54,7 @@ import org.powertac.logtool.ifc.Analyzer;
  * sorting them by broker and target timeslot. The output data file has a header
  * line giving column names. The
  * remainder of the file has either one line/broker for each timeslot
- * (if the per-broker option is given) or one line per timeslot formatted as<br>
+ * (if the broker or the per-broker option is given) or one line per timeslot formatted as<br>
  * timeslot,day-of-week,hour-of-day,broker-name,<br>
  * followed by credit and debit amounts from transactions and other
  * interactions that affect a broker's cash account: <br>
@@ -74,7 +74,7 @@ import org.powertac.logtool.ifc.Analyzer;
  * NOTE: Numeric data is formatted using the US locale in order to avoid confusion over
  * the meaning of the comma character when used in other locales.
  * 
- * Usage: BrokerAccounting [--per-broker] state-log-filename output-data-filename
+ * Usage: BrokerAccounting [--per-broker | --broker name] state-log-filename output-data-filename
  * 
  * @author John Collins
  */
@@ -97,6 +97,7 @@ implements Analyzer
   private boolean firstTx = false;
   private int timeslot = 0;
   private boolean perBroker = false;
+  private String singleBroker = null;
   private PrintWriter output = null;
   private String dataFilename = "broker-accounting.data";
   
@@ -110,17 +111,21 @@ implements Analyzer
   }
   
   /**
-   * Takes two args, input filename and output filename
+   * Takes 2-4 args, input filename and output filename
    */
   private void cli (String[] args)
   {
     int offset = 0;
-    if (args.length == 3 && "--per-broker".equals(args[0])) {
+    if (args.length == 4 && "--broker-name".equals(args[0])) {
+      singleBroker = args[1];
+      offset = 2;
+    }
+    else if (args.length == 3 && "--per-broker".equals(args[0])) {
       perBroker = true;
       offset = 1;
     }
     else if (args.length != 2) {
-      System.out.println("Usage: org.powertac.logtool.example.BrokerAccounting [--per-broker] input-file output-file");
+      System.out.println("Usage: org.powertac.logtool.example.BrokerAccounting [--per-broker | --broker-name name] input-file output-file");
       return;
     }
     dataFilename = args[1 + offset];
@@ -147,8 +152,21 @@ implements Analyzer
 
   private void firstLine ()
   {
-    brokerList = brokerRepo.findRetailBrokers();
     brokerData = new HashMap<>();
+    if (singleBroker != null) {
+      Broker single = brokerRepo.findByUsername(singleBroker);
+      if (null == single) {
+        log.error("Cannot find single broker {}", singleBroker);
+        output.close();
+        System.out.println("Single broker not found in data file");
+        System.exit(-1);
+      }
+      brokerList = new ArrayList<Broker>();
+      brokerList.add(single);
+    }
+    else {
+      brokerList = brokerRepo.findRetailBrokers();
+    }
     for (Broker broker: brokerList) {
       brokerData.put(broker, new BrokerData());
     }
@@ -278,6 +296,10 @@ implements Analyzer
     if (!brokerList.contains(broker))
       return;
     BrokerData bd = brokerData.get(broker);
+    if (null == bd) {
+      log.error("Broker data null for {}", broker.getUsername());
+      return;
+    }
     double amount = tx.getCharge();
     // separate state from produce/consume tx
     if (tx.getTxType() == Type.PRODUCE || tx.getTxType() == Type.CONSUME) {
