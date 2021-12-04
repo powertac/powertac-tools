@@ -1,10 +1,17 @@
 #!/usr/bin/python3
 '''
 Reads files produced by the BrokerAccounting logtool, pulls apart debit/credit
-data, generates plots. Plots are generated in a
+data, generates plots. Plots are generated in new windows.
 
 Requires a Python 3 installation with SciPy/NumPy libraries.
 Assumes BrokerAccounting tool is built in parallel directory ../logtool-examples
+
+To use, start a python session, import BrokerAccounting, set the gameSizes to filter
+out incomplete games, then run collectData(cvsUrl, tournamentDir). Game logs will be
+downloaded and decompressed as needed, and the BrokerAccounting analyzer will be run
+on each game to extract the data. Violin plots can then be generated using
+brokerDistributions() or factorDistributions(). To generate png files with
+transparent backgrounds, specify the saveAs parameter.
 '''
 
 import TournamentLogtoolProcessor as tl
@@ -22,6 +29,9 @@ brokerSummaries = {}
 scaledColumns = {'ttx-uc','ttx-ud','mtx-c','mtx-d','btx-c','btx-d',
                  'dtx-c','dtx-d','ctx-c','ctx-d','bce-c','bce-d',
                  'bank-c','bank-d'}
+
+# Only games of these sizes will be considered
+gameSizes = [3, 5, 8]
 
 plotDir = './plots'
 
@@ -51,6 +61,14 @@ sums = {'ttx-s': ('ttx-sc', 'ttx-sd'),
         'bce': ('bce-c', 'bce-d'),
         'bank': ('bank-c', 'bank-d')}
 
+# If game sizes are not [3, 5, 8] then set them here to filter out games with missing brokers
+def setGameSizes (sizes):
+    global gameSizes
+    gameSizes = sizes
+    print('Game sizes: ', gameSizes)
+    for i in range(len(sizes)):
+        gameSizes[i] += 1  # The default broker is included
+
 def processGame (filepath):
     datafile = open(filepath, 'r')
     brokerdata = {}
@@ -58,6 +76,10 @@ def processGame (filepath):
     # first line is heading
     header = datafile.readline().strip().split(',')
     brokerOffsets = getBrokerOffsets(header)
+    if len(brokerOffsets) not in gameSizes:
+        print('game {} of length {} omitted'.format(filepath, len(brokerOffsets) - 1))
+        badFile = True
+        return
     itemOffsets = getItemOffsets(header)
     for line in datafile.readlines():
         row = line.strip().split(',')
@@ -109,7 +131,7 @@ def getItemOffsets (header):
     ptr = 0
     while more:
         ptr += 1
-        if header[start + ptr] == 'broker1':
+        if len(header) <= (start + ptr) or header[start + ptr] == 'broker1':
             more = False
         else:
             offsets[header[start + ptr]] = ptr
