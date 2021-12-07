@@ -197,7 +197,8 @@ def factorDistributions (title, broker,
 # a. the logtool-examples module has been built (mvn clean test), and
 # b. both this directory (powertac-tools/python-scripts) and the
 #    parallel directory powertac-tools/logtool examples contain symlinks to
-#    a directory finals-2018 where the downloaded logs will be downloaded
-#    and extracted, and where the data files will be created.
+#    a directory finals-2018 where the games.cvs file is found,
+#    where downloaded logs will be downloaded and extracted,
+#    and where the data files will be created.
 #
 # collectData('file:./finals-2018/finals_2018_07.games_.csv', 'finals-2018')

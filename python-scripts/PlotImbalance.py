@@ -11,7 +11,7 @@ modules in dir ../logtool-examples must have been built (using mvn clean test).
 '''
 
 from numpy import *
-import scipy, pylab, matplotlib
+import matplotlib, matplotlib.pyplot as pp
 from pylab import *
 from scipy import stats
 import string,re,os
@@ -21,6 +21,12 @@ import TournamentLogtoolProcessor as tl
 logtoolClass = {'summary': 'org.powertac.logtool.example.ImbalanceSummary',
                 'detail': 'org.powertac.logtool.example.ImbalanceStats'}
 dataPrefix = {'summary': 'imbSum', 'detail': 'imbStats'}
+
+# Only games of these sizes will be considered
+allowedGameSizes = [3, 5, 8]
+
+# where to stick plots
+plotDir = './plots'
 
 # Extracted data
 gameSummaries = []
@@ -58,17 +64,28 @@ def collectData (tournamentCsvUrl, tournamentDir, datatype='summary'):
 
 def processSummary (filepath):
     datafile = open(filepath, 'r')
-    # first line is game summary
+    # first line header, second is game summary
+    line = datafile.readline()
     line = datafile.readline()
     tokens = line[:-1].split(',') # remove EOL, tokenize on comma
     # first two tokens are game_id, n_brokers
-    gameSizes.append(int(tokens[1]))
+    gameSize = int(tokens[1])
+    if len(allowedGameSizes) > 0 and not gameSize in allowedGameSizes:
+        print('Dropping game {} of size {}'.format(tokens[0], gameSize))
+        return
+    gameSizes.append(gameSize)
     row = []
     gameSummaries.append(row)
     for token in tokens[2:]:
         row.append(floatMaybe(token))
 
-    # remainder of file is broker data
+    # remainder of file is whitespace, a header, and broker data
+    # the header tells us how many brokers were in the game
+    for line in datafile.readlines():
+        tokens = line[:-1].split(',')
+        if len(tokens) > 1 and tokens[0] == 'broker':
+            break
+        
     for line in datafile.readlines():
         tokens = line[:-1].split(',')
         brokername = tokens[0]
@@ -108,7 +125,14 @@ def processDetail (filepath):
     for broker in hdr:
         if broker not in brokerData:
             brokerData[broker] = []
+    
+    gameSize = len(brokerData) - 1
+    if len(allowedGameSizes) > 0 and not gameSize in allowedGameSizes:
+        print('Dropping game of size', gameSize)
+        return
+    
     drop = rows2drop
+
     for line in data.readlines():
         drop -= 1
         if drop >= 0:
@@ -124,11 +148,13 @@ def processDetail (filepath):
                 brokerData[broker].append(data * len(hdr) / 8000)
 
 
-def plotBrokers (title):
+def plotBrokers (title, yLimit = [], saveAs=''):
     fig = figure()
     ax = fig.add_subplot(1,1,1)
     ax.violinplot(brokerData.values(), showmeans=False, showmedians=True)
     ax.set_title(title)
+    if len(yLimit) == 2:
+        ax.set_ylim(yLimit[0], yLimit[1])
     ax.yaxis.grid(True)
     ax.set_ylabel("MW")
     ax.set_xlabel("Broker")
@@ -137,7 +163,11 @@ def plotBrokers (title):
     ax.set_xticks(np.arange(len(brokers)))
     ax.set_xticklabels(brokers, rotation='vertical')
     fig.tight_layout()
-    fig.show()
+    if saveAs == '':
+        fig.show()
+    else:
+        pp.savefig(plotDir + '/' + saveAs + '.png', transparent=True)
+        pp.savefig(plotDir + '/' + saveAs + '.svg', transparent=True)
 
     
 #collectData('file:./finals-2017/finals_2017_06.games.csv', 'finals-2017')

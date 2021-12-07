@@ -145,10 +145,10 @@ implements Analyzer
                        + ", " + timeslot + " timeslots");
     System.out.println("Total imbalance = " + totals.imbalance);
     System.out.println("RMS imbalance = " + rms);
+    data.println("game-id,n_brokers,c_total,cr_total,p_total,pr_total,i_total,i_rms,ir_total");
     data.print(String.format("%s,%d,",
                              Competition.currentCompetition().getName(),
                              hourlyData.size() - 1));
-    data.println("game-id,n_brokers,c_total,cr_total,p_total,pr_total,i_total,i_rms,ir_total");
     data.println(totals.formatWithRms(rms));
     data.println();
 
