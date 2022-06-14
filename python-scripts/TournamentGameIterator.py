@@ -77,6 +77,8 @@ def extractLogs (url, game, tarname, dirPath, target):
         print("download", tarname, "exists")
     if not os.path.exists("./log"):
         tar = tarfile.open(tarname)
+        if (tar.getmember(game)):
+            os.chdir("..")
         tar.extractall()
         tar.close
     else:

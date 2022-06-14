@@ -97,6 +97,7 @@ implements Analyzer
       argOffset = 1;
       omitHeaders = true;
     }
+    System.out.println("<" + args[argOffset] + "->" + args[argOffset + 1]);
     dataFilename = args[argOffset + 1];
     super.cli(args[argOffset], this);
   }

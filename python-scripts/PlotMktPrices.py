@@ -22,7 +22,7 @@ import TournamentLogtoolProcessor as tl
 
 logtoolClass = 'org.powertac.logtool.example.MktPriceStats'
 tournamentDir = 'finals-2018'
-dataPrefix = 'mktPr'
+dataPrefix = 'mktPr-'
 initialSkip = 6 # timeslots to skip at start
 plotDir = 'plots/'
 
@@ -51,6 +51,7 @@ def processFile (filename):
     Given a filename, reads the file, reduces the data to mean $/MW
     and adds to the various datasets.
     '''
+    print('opening', filename)
     datafile = open(filename, 'r')
     drop = initialSkip
     game = []
