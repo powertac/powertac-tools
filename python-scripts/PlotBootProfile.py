@@ -17,7 +17,16 @@ def floatMaybe (str):
         result = float(str)
     return result
 
-def plotProfile (bootfile, title):
+def printProfileMedians (bootfile, divisor = 10000):
+    '''
+    Prints the median values from a profile
+    '''
+    data = processFile(bootfile)
+    medians = -median(data, 0)/divisor
+    print(medians)
+    
+
+def plotProfile (bootfile, title, format = 'png'):
     '''
     Plots the mean daily consumption profile during a boot session
     '''
@@ -28,10 +37,11 @@ def plotProfile (bootfile, title):
     ax = fig.add_subplot(1,1,1)
     ax.boxplot(-data, showfliers=False)
     ax.set_title(title)
+    pp.ylim(0, 30000)
     ax.yaxis.grid(True)
     ax.set_ylabel("kWh")
     ax.set_xlabel("hour of day")
-    pp.savefig('plots/box-' + title)
+    pp.savefig('plots/box-' + title + '.' + format, format=format)
     #fig.show()
 
 def makeArrayFromString (valueString, period):
