@@ -28,24 +28,27 @@ def logIter (tournamentURL, tournamentDir):
     return (extractLog(tournamentURL, game.rstrip(), tournamentDir)
             for game in games)
 
-def csvIter (tournamentCsvUrl, dirPath, target):
+def csvIter (tournamentCsvUrl, dirPath, target, em = False):
     '''
     Reads the tournament summary spreadsheet, extracts game IDs and URLs,
     downloads and unpacks the game logs if necessary.
     Each iteration returns the dict produced by extractLogs()
-    for the given game.
+    for the given game. If em == True, then we assume the directory structure
+    produced by the Experiment Manager
     '''
     content = urllib.request.urlopen(tournamentCsvUrl)
-    gameList = io.StringIO(content.read().decode('utf-8'))
+    gameList = io.StringIO(content.read().decode('utf-8-sig'))
     #csvReader = csv.DictReader(gameList, delimiter=';')
     csvReader = csv.DictReader(gameList)
+    print('Fields', csvReader.fieldnames)
     return(extractLogs(row['logUrl'], row['gameId'],
-                       re.search('/([^/]+)$', row['logUrl']).group(1),
-                       dirPath, target)
+                       #re.search('/([^/]+)$', row['logUrl']).group(1),
+                       row['gameId'] + ".tar.gz",
+                       dirPath, target, em)
            for row in csvReader)
 
 
-def extractLogs (url, game, tarname, dirPath, target):
+def extractLogs (url, game, tarname, dirPath, target, em):
     '''
     Extracts logs from compressed game log file, if not already extracted.
     Returns the name of a directory inside tournamentDir that contains two
@@ -53,6 +56,7 @@ def extractLogs (url, game, tarname, dirPath, target):
     the state and trace logs. Returns the paths to the boot and sim logs as
     a dict of the form {'gameId': id, 'boot':bootlog, 'sim':simlog}.
     '''
+    print('tgi.extractLogs, game url =', url, 'target =', target)
     # don't do anything if the target path exists
     targetPath = target + game + '.csv'
     print('target =', targetPath)
@@ -62,14 +66,54 @@ def extractLogs (url, game, tarname, dirPath, target):
     # make sure we have the bundle locally
     currentDir = os.getcwd()
     os.chdir(dirPath)
+    # handle tournament and EM bundles differently
+    if em:
+        return extractEMBundle(url, game, tarname, dirPath, target, currentDir)
+    else:
+        return extractTSBundle(url, game, tarname, dirPath, target, currentDir)
 
+def extractEMBundle(url, game, tarname, dirPath, target, originalDir):
+    ''' EM bundles contain only sim logs, no boot artifacts '''
     # extract the bundle into the directory if needed
     gameDirPath = game
     if not os.path.isdir(gameDirPath):
         os.mkdir(gameDirPath)
-    os.chdir(gameDirPath)
     # check for existing download
     if not os.path.exists(tarname):
+        print('extractLogs opening', tarname)
+        g = urllib.request.urlopen(url)
+        with open(tarname, 'wb') as f:
+            f.write(g.read())
+    else:
+        print("download", tarname, "exists")
+    if not os.path.exists(gameDirPath + "./log"):
+        tar = tarfile.open(tarname)
+        #if (tar.getmember(game)):
+        #    os.chdir("..")
+        tar.extractall()
+        tar.close
+    else:
+        print("logs for game", game, "exist")
+    os.chdir(originalDir)
+
+    # find the actual paths to the sim logs and boot record
+    simDir = Path(dirPath, gameDirPath, 'log')
+    simfile = ''
+    for file in simDir.glob('*.state'):
+        if (not str(file).endswith('init.state')):
+            simfile = file
+    
+    return {'gameId': game,
+            'sim': str(simfile)}
+
+def extractTSBundle(url, game, tarname, dirPath, target, originalDir):
+    # extract the bundle into the directory if needed
+    gameDirPath = game
+    if not os.path.isdir(gameDirPath):
+        os.mkdir(gameDirPath)
+    # check for existing download
+    if not os.path.exists(tarname):
+        print('extractLogs opening', tarname)
         g = urllib.request.urlopen(url)
         with open(tarname, 'wb') as f:
             f.write(g.read())
@@ -84,7 +128,7 @@ def extractLogs (url, game, tarname, dirPath, target):
     else:
         print("logs for game", game, "exist")
 
-    os.chdir(currentDir)
+    os.chdir(originalDir)
 
     # find the actual paths to the boot and sim logs and xml boot record
     bootxml = ''

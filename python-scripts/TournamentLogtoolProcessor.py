@@ -50,7 +50,7 @@ def extractData (statefileName, gameId, extractorClass,
 def dataFileIter (tournamentCsvUrl, tournamentDir, extractorClass, dataPrefix,
                   extractorOptions='', logtype='sim',
                   logtoolDir = "../logtool-examples/",
-                  force=False):
+                  force=False, em=False):
     '''
     Iterates through sim logs found in tournamentDir, running the specified
     data extractor. If force is False (the default), then the extractor will be
@@ -61,13 +61,16 @@ def dataFileIter (tournamentCsvUrl, tournamentDir, extractorClass, dataPrefix,
                         extractorOptions, logtoolDir,
                         dataDir = tournamentDir + '/data', force=force)
             for log in ti.csvIter(tournamentCsvUrl, tournamentDir,
-                                  target = tournamentDir + '/data/' + dataPrefix))
+                                  target = tournamentDir + '/data/' + dataPrefix,
+                                  em=em))
 
 
-def iterate (url, tournamentDir, extractorClass, dataPrefix, options, force=False):
+def iterate (url, tournamentDir, extractorClass,
+             dataPrefix, options, force=False, em=False):
+    print('iterate url: {}', url)
     for data in dataFileIter(url, tournamentDir,
                              extractorClass, dataPrefix,
-                             options, force=force):
+                             options, force=force, em=em):
         print(data)
 
 def errorCheck (csvurl, tournamentDir):
@@ -81,13 +84,17 @@ def main ():
     Command-line invocation
     '''
     if len(sys.argv) < 5:
-        print('Usage: TournamentLogtoolProcessor [--force] url tournamentDir extractorClass dataPrefix options...')
+        print('Usage: TournamentLogtoolProcessor [--force] [--em] url tournamentDir extractorClass dataPrefix options...')
     else:
         offset = 0
         force = False
-        if sys.argv[1] == '--force':
-            force = True
-            offset = 1
+        em = False
+        while sys.argv[1 + offset] == '--force' or sys.argv[1 + offset] == '--em':
+            if sys.argv[1 + offset] == 'force':
+                force = True
+            elif sys.argv[1 + offset] == '--em':
+                em = True                    
+            offset += 1
         options = ''
         if len(sys.argv) > 5 + offset:
             for index in range(5 + offset, len(sys.argv)):
@@ -96,7 +103,7 @@ def main ():
 
         iterate(sys.argv[1 + offset], sys.argv[2 + offset],
                 sys.argv[3 + offset], sys.argv[4 + offset],
-                options, force=force)
+                options, force=force, em=em)
 
 if __name__ == "__main__":
     main()
