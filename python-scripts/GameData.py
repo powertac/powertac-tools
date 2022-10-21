@@ -3,10 +3,23 @@ Holder for game data, including sim and boot data. Aggregates data by
 game, by week, by day, by weekday, by weekend-day. Allows retrieval by
 name.
 
+For tournament data, source is the tournament year, which must appear in
+the tournamentUrl and tournamentDir dictionaries below.
+
+For experiment data, em=True and source is a directory containing
+a set of .csv files with the same structure as a tournament csv,
+each of which contains a URL for a set of game logs, one for each
+treatment, presumably including a baseline set. Each is assumed
+to have a filename ending in '.games.csv'. For each one, a
+subdirectory is created named for the filename omitting the suffix
+into which the experiment game logs will be extracted. Each
+subdirectory will also have subdirectories named 'data' and 'plots'.
+
 Currently does not handle csv files directly, needs comma separators.
 '''
 
 from pathlib import Path
+import os, glob
 import TournamentLogtoolProcessor as tl
 
 class GameData:
@@ -15,13 +28,22 @@ class GameData:
     logType is one of 'sim', 'boot'
     '''
 
-    def __init__ (self, tournamentYear = '2018', dataType='net-demand'):
-        self.reset(dataType, tournamentYear)
+    def __init__ (self, source = '2021',
+                  dataType='net-demand',
+                  em = False):
+        self.reset(dataType, source, em = em)
 
-    def reset (self, dataType, tournamentYear):
+    def __enter__ (self):
+        return self
+
+    def __exit__ (self):
+        return self
+
+    def reset (self, dataType, source, em=False):
         # data store
         self.dataType = dataType
-        self.tournamentYear = tournamentYear
+        self.em = em
+        self.source = source
         self.gameData = []  # row per game
         self.bootData = []
         self.gameDict = {}
@@ -46,6 +68,10 @@ class GameData:
                           'downregUsed': 'dnu',
                           'imbPriceRatio': 'ratio'}
 
+    # True if working with experiment data rather than tournament data
+    em = False
+
+    source = ''
 
     # data-type parameters
     logtoolClass = {'net-demand':
@@ -71,7 +97,7 @@ class GameData:
                     'imbalanceCost':
                     'org.powertac.logtool.example.DemandResponseStats',
                     'imbalanceCostRatio':
-                    'org.powertac.logtool.example.ImbalanceCostAnalysis}
+                    'org.powertac.logtool.example.ImbalanceCostAnalysis'}
     dataDir = 'data'
     dataPrefix = {'net-demand': 'pc',
                   'consumption': 'pc',
@@ -86,12 +112,14 @@ class GameData:
                   'imbalanceCost': 'drs',
                   'imbalanceCostRatio': 'ica'}
 
-    tournamentUrl = {'2019': 'file:./finals-2019/finals_2019_07.games_.csv',
-                     '2018': 'file:./finals-2018/finals_2018_07.games_.csv',
-                     '2017': 'file:./finals-2017/finals_2017_06.games.csv',
-                     '2016': 'file:./finals-2016/finals_2016_07.games.csv'}
+    tournamentUrl = {'2021': 'file:./finals-202110/games.finals_2021.csv',
+                     '2020': 'file:./finals-202011/finals_2020_11.games.csv',
+                     '2019': 'file:./finals-201907/finals_2019_07.games_.csv',
+                     '2018': 'file:./finals-201807/finals_2018_07.games_.csv',
+                     '2017': 'file:./finals-201706/finals_2017_06.games_.csv',
+                     '2016': 'file:./finals-201606/finals_2016_06.games_.csv'}
 
-    tournamentDir = {'2019': 'finals-2019,
+    tournamentDir = {'2019': 'finals-2019',
                      '2018': 'finals-2018',
                      '2017': 'finals-2017',
                      '2016': 'finals-2016'}
@@ -101,6 +129,36 @@ class GameData:
         Processes data from sim data files in the specified directory.
         Use force=True to force re-analysis of the data. Otherwise the logtool
         code won't be run if its output is already in place. '''
+        if self.em:
+            # source is a directory containing multiple .csv files
+            # Create subdirectories if needed
+            self.populateExperimentMaybe(self.source, force=force)
+        else:
+            self.collectDataOnce(self.tournamentUrl[self.source],
+                                 logType,
+                                 self.tournamentDir[self.source],
+                                 force=force)
+
+    def populateExperimentMaybe (self, dir, force):
+        '''
+        dir contains a set of .csv files
+        '''
+        #print(dir)
+        for file in glob.glob(dir + '/*.csv'):
+            print('csv =', file)
+            fn = file.removeprefix(dir + '/')
+            prefix = fn.removesuffix('.games.csv')
+            print(prefix)
+            subdir = dir + '/' + prefix
+            if not os.path.exists(subdir):
+                os.mkdir(subdir)
+                os.mkdir(subdir + '/data')
+                os.mkdir(subdir + '/plots')
+            self.collectDataOnce('file:./' + file, 'sim', subdir, force=force)
+                            
+            
+
+    def collectDataOnce (self, url, logType, dir, force=False):
         actualPrefix = self.dataPrefix[self.dataType]
         if actualPrefix == '':
             print('Bad dataType: {}'.format(self.dataType))
@@ -108,12 +166,11 @@ class GameData:
         if logType != 'sim':
             actualPrefix = '{}{}-'.format(self.dataPrefix[self.dataType],
                                            logType)
-        for info in tl.dataFileIter(self.tournamentUrl[self.tournamentYear],
-                                    self.tournamentDir[self.tournamentYear],
+        for info in tl.dataFileIter(url, dir,
                                     self.logtoolClass[self.dataType],
                                     actualPrefix,
                                     logtype=logType,
-                                    force = force):
+                                    force = force, em = self.em):
             # note that dataFile is a Path, not a string
             if logType == 'sim':
                 #print(info['gameId'], str(info['path']))

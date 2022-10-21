@@ -22,8 +22,11 @@ logtoolClass = {'summary': 'org.powertac.logtool.example.ImbalanceSummary',
                 'detail': 'org.powertac.logtool.example.ImbalanceStats'}
 dataPrefix = {'summary': 'imbSum', 'detail': 'imbStats'}
 
+# em must be True if we are looking ate experiment-manater files
+em = True
+
 # Only games of these sizes will be considered
-allowedGameSizes = [1,2,3,4, 5, 8]
+allowedGameSizes = [1,2,3,4,5,7,8]
 
 # where to stick plots
 plotDir = './plots'
@@ -56,9 +59,11 @@ def collectData (tournamentCsvUrl, tournamentDir, datatype='summary'):
     for f in tl.dataFileIter(tournamentCsvUrl,
                              tournamentDir,
                              logtoolClass[datatype],
-                             dataPrefix[datatype]):
+                             dataPrefix[datatype],
+                             em=em):
         # note that f is a dict{path, gameId}
         if datatype == 'summary':
+            print(f)
             processSummary(f['path'])
         else:
             processDetail(f['path'])
@@ -179,11 +184,12 @@ def plotBrokers (title, yLimit = [], saveAs='', labels=False):
     
 #collectData('file:./finals-2017/finals_2017_06.games.csv', 'finals-2017')
 init()
-collectData('file:solarlease/exp-solar-lease_baseline.games.csv','solarlease/base')
-plotBrokers('Baseline imbalance', yLimit=[-10e7,5e7], saveAs='base-brokerImbalance')
-init()
-collectData('file:solarlease/exp-solar-lease_pop-1000.games.csv','solarlease/pop-1000')
-plotBrokers('Pop-1000 imbalance', yLimit=[-10e7,5e7], saveAs='pop-1000-brokerImbalance')
-init()
-collectData('file:solarlease/exp-solar-lease_pop-20000.games.csv','solarlease/pop-20000')
-plotBrokers('Pop-20000 imbalance', yLimit=[-10e7,5e7], saveAs='pop-20000-brokerImbalance')
+collectData('file:exp-solarlease/cheyenne-base/solar-lease_cheyenne-june_baseline.games.csv','exp-solarlease/cheyenne-base')
+#collectData('file:exp-solarlease/cheyenne-7000/solar-lease_cheyenne-june_pop-7000.games.csv','exp-solarlease/cheyenne-7000')
+#collectData('file:exp-solarlease/cheyenne-14000/solar-lease_cheyenne-june_pop-14000.games.csv','exp-solarlease/cheyenne-14000')
+#collectData('file:exp-solarlease/cheyenne-21000/solar-lease_cheyenne-june_pop-21000.games.csv','exp-solarlease/cheyenne-21000')
+#plotBrokers('Baseline imbalance', yLimit=[-10e7,5e7], saveAs='base-brokerImbalance')
+#init()
+#plotBrokers('Pop-1000 imbalance', yLimit=[-10e7,5e7], saveAs='pop-1000-brokerImbalance')
+#init()
+#plotBrokers('Pop-20000 imbalance', yLimit=[-10e7,5e7], saveAs='pop-20000-brokerImbalance')

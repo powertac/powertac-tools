@@ -34,13 +34,13 @@ dayData = [[] for x in range(24)]
 dataMap = {'Weekly':weekData, 'Weekday':weekdayData, 'Weekend':weekendData,
            'Daily':dayData}
 
-def collectData (csvUrl, tournamentDir):
+def collectData (csvUrl, tournamentDir, em=False):
     '''
     Processes data from data files in the specified directory.
     '''
     for info in tl.dataFileIter(csvUrl, tournamentDir,
                                 logtoolClass,
-                                dataPrefix):
+                                dataPrefix, em=em):
         # note that dataFile is a Path, not a string
         processFile(str(info['path']))
 

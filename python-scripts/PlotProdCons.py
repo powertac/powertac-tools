@@ -38,6 +38,11 @@ import GameData as gc
 # fill in with an appropriate GameData instance
 gameData = gc.GameData()
 
+def init ():
+    gameSummaries = []
+    gameSizes = []
+    brokerData = {}
+
 def plotMeans (dataInterval='Daily',
                dataType='net-demand', showTitle=False):
     '''
@@ -507,6 +512,6 @@ def bootTransitionHistogram (ratio=False):
 
     
 # ----------- debug init ---------
-tournament = 'finals-201504'
-#tournament = 'finals-2014'
+
+#tournament = 'finals-201504'
 # collectData(tournament)
