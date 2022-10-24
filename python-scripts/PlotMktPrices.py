@@ -225,11 +225,12 @@ def plotDataWithLabels (data, labels, columns, low=1, high=-1):
     legend(loc='lower left')
     show()
 
-def plotContours (dataName, contours, saveAs=''):
+def plotContours (dataName, contours, ylim=0, saveAs=''):
     '''
     Extracts data points from the raw data at the given contour intervals.
     The contours arg is a list of probabilities 0.0 < contour <= 1.0.
     For example, contours=[0.05, 0.5, 0.95] plots the 5%, 50%, and 95% contours.
+    If ylim > 0, then the plot range will be [0,ylim].
     '''
     data = []
     for day in dataMap[dataName]:
@@ -254,7 +255,8 @@ def plotContours (dataName, contours, saveAs=''):
     x = range(len(data))
     plt.grid(True)
     plt.title('{} wholesale price contours'.format(dataName))
-    #plt.ylim((0, 110))
+    if ylim > 0:
+        plt.ylim((0, ylim))
     for y,lbl in zip(rows, contours):
         plt.plot(x, y, label = '{0}%'.format(lbl * 100))
     plt.xlabel('Hour')
@@ -267,7 +269,7 @@ def plotContours (dataName, contours, saveAs=''):
     if saveAs == '':
         plt.show()
     else:
-        plt.savefig(plotDir + saveAs + '.png')
+        plt.savefig(plotDir + saveAs + '.pdf')
 
 def plotHistogram ():
     '''

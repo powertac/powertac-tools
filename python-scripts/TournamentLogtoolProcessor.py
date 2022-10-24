@@ -20,7 +20,7 @@ def extractData (statefileName, gameId, extractorClass,
     result in dataDir/dataPrefix-gameId.csv relative to the logtool used.
     Requires working Java 8 and maven installations.
     '''
-    print("state file:", statefileName, ':')
+    print("state file:", statefileName)
     datafileName = dataPrefix + gameId + '.csv'
     dataPath = Path(logtoolDir, dataDir, datafileName)
     if force and dataPath.exists():

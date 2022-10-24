@@ -164,7 +164,7 @@ def plotBrokers (title, yLimit = [], saveAs='', labels=False):
     ax.violinplot(brokerData.values(), showmeans=False, showmedians=True)
     if labels:
         ax.set_title(title)
-        ax.set_xlabel("Broker")
+        #ax.set_xlabel("Broker")
     if len(yLimit) == 2:
         ax.set_ylim(yLimit[0], yLimit[1])
     ax.yaxis.grid(True)
@@ -184,7 +184,7 @@ def plotBrokers (title, yLimit = [], saveAs='', labels=False):
     
 #collectData('file:./finals-2017/finals_2017_06.games.csv', 'finals-2017')
 init()
-collectData('file:exp-solarlease/cheyenne-base/solar-lease_cheyenne-june_baseline.games.csv','exp-solarlease/cheyenne-base')
+#collectData('file:exp-solarlease/solar-lease_cheyenne-june_baseline.games.csv','exp-solarlease/solar-lease_cheyenne-june_baseline')
 #collectData('file:exp-solarlease/cheyenne-7000/solar-lease_cheyenne-june_pop-7000.games.csv','exp-solarlease/cheyenne-7000')
 #collectData('file:exp-solarlease/cheyenne-14000/solar-lease_cheyenne-june_pop-14000.games.csv','exp-solarlease/cheyenne-14000')
 #collectData('file:exp-solarlease/cheyenne-21000/solar-lease_cheyenne-june_pop-21000.games.csv','exp-solarlease/cheyenne-21000')

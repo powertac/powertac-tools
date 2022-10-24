@@ -36,47 +36,51 @@ import math, copy
 import GameData as gc
 
 # fill in with an appropriate GameData instance
-gameData = gc.GameData()
+#gameData = gc.GameData()
 
 def init ():
     gameSummaries = []
     gameSizes = []
     brokerData = {}
 
-def plotMeans (dataInterval='Daily',
-               dataType='net-demand', showTitle=False):
+def plotMeans (treatment='', dataInterval='Daily',
+               dataType='net-demand', title='', showTitle=False):
     '''
     Reduces the raw data into means and 1-sigma error bars, plots result
     '''
-    if gameData.dataType != dataType:
-        gameData.reset(dataType)
-    data = gameData.dataArray(dataInterval)
+    data = gameData.getDataArray(treatment, dataInterval)
     d = [np.array(c) for c in data]
     print('Shape:', np.shape(d))
     means = [c.mean() for c in d]
     stds = [c.std() for c in d]
     x = range(np.shape(d)[0])
-    if showTitle:
+    if title != '':
+        plt.title(title)
+    elif showTitle:
         plt.title('Mean {} {}, 1-sigma error bars'.format(dataInterval, dataType))
     plt.errorbar(x, means, yerr=stds)
     plt.xlabel('hour')
     plt.ylabel('Net demand (MW)')
     plt.show()
 
-def plotContours (contours, dataInterval='Daily',
+def plotContours (contours,
+                  treatment='',
+                  dataInterval='Daily',
                   dataType='net-demand',
-                  tournamentYear = '2018',
+                  tournamentYear = '',
                   ylimit=0,
                   units='MW',
-                  showTitle=False):
+                  title='', showTitle=False):
     '''
     Extracts data points from the raw data at the given contour intervals.
     The contours arg is a list of probabilities 0.0 < contour <= 1.0.
     For example, contours=[0.05, 0.5, 0.95] plots the 5%, 50%, and 95% contours.
     '''
-    if gameData.dataType != dataType:
-        gameData.reset(dataType, tournamentYear)
-    data = gameData.dataArray(dataInterval)
+    #Fix!
+    #if gameData.dataType != dataType:
+    #    gameData.reset(dataType, tournamentYear)
+    data = gameData.getDataArray(treatment, dataInterval)
+    #data = gameData.dataArray(dataInterval)
     rows = []
     for c in data:
         c.sort()
@@ -96,7 +100,9 @@ def plotContours (contours, dataInterval='Daily',
                 row.append(0.0)
     x = range(len(data))
     plt.grid(True)
-    if showTitle:
+    if title != '':
+        plt.title(title)
+    elif showTitle:
         plt.title('{} {} contours {}'.format(dataInterval,
                                              gameData.dataType,
                                              gameData.tournamentYear))

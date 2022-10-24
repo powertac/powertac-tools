@@ -19,7 +19,7 @@ Currently does not handle csv files directly, needs comma separators.
 '''
 
 from pathlib import Path
-import os, glob
+import os, glob, copy
 import TournamentLogtoolProcessor as tl
 
 class GameData:
@@ -43,7 +43,9 @@ class GameData:
         # data store
         self.dataType = dataType
         self.em = em
+        #self.experiments = []
         self.source = source
+        self.treatment = ''
         self.gameData = []  # row per game
         self.bootData = []
         self.gameDict = {}
@@ -53,9 +55,13 @@ class GameData:
         self.weekdayData = [[] for x in range(24)]
         self.weekendData = [[] for x in range(24)]
         self.dayData = [[] for x in range(24)]
-        self.dataMap = {'Weekly':self.weekData, 'Weekday':self.weekdayData,
-                        'Weekend':self.weekendData, 'Daily':self.dayData,
-                        'Game':self.gameSeq}
+        # Does not work for experiments
+        #self.dataMap = {'Weekly':self.weekData, 'Weekday':self.weekdayData,
+        #                'Weekend':self.weekendData, 'Daily':self.dayData,
+        #                'Game':self.gameSeq}
+        self.dataMap = {'Weekly':'weekData', 'Weekday':'weekdayData',
+                        'Weekend':'weekendData', 'Daily':'dayData',
+                        'Game':'gameSeq'}
         self.processor = {'net-demand': 'extractProdCons',
                           'consumption': 'extractProdCons',
                           'production': 'extractProdCons',
@@ -70,6 +76,9 @@ class GameData:
 
     # True if working with experiment data rather than tournament data
     em = False
+
+    # Treatments collect data per treatment for an experiment
+    treatments = {}
 
     source = ''
 
@@ -124,6 +133,7 @@ class GameData:
                      '2017': 'finals-2017',
                      '2016': 'finals-2016'}
 
+
     def collectData (self, logType='sim', force=False):
         '''
         Processes data from sim data files in the specified directory.
@@ -148,13 +158,18 @@ class GameData:
             print('csv =', file)
             fn = file.removeprefix(dir + '/')
             prefix = fn.removesuffix('.games.csv')
-            print(prefix)
             subdir = dir + '/' + prefix
+            # create directories if necessary
             if not os.path.exists(subdir):
                 os.mkdir(subdir)
                 os.mkdir(subdir + '/data')
                 os.mkdir(subdir + '/plots')
+            # collect data for one treatment and clear out data collectors
+            print('file {}, subdir {}'.format(file, subdir))
             self.collectDataOnce('file:./' + file, 'sim', subdir, force=force)
+            # Gather up the data for this treatment
+            # print('prefix = {}'.format(prefix))
+            self.gatherTreatment(prefix)
                             
             
 
@@ -233,6 +248,43 @@ class GameData:
             net = self.extractNet(prod, cons)
             gameSeries.append(net)
 
+    def gatherTreatment (self, treatment):
+        self.treatments[treatment] = {}
+        self.treatments[treatment]['gameData'] = copy.copy(self.gameData)
+        self.gameData = []
+        self.treatments[treatment]['bootData'] = copy.copy(self.bootData)
+        self.bootData = []
+        self.treatments[treatment]['gameDict'] = self.gameDict.copy()
+        self.gameDict = {}
+        self.treatments[treatment]['bootDict'] = self.bootDict.copy()
+        self.bootDict = {}
+        self.treatments[treatment]['gameSeq'] = copy.copy(self.gameSeq)
+        self.gameSeq = [[] for x in range(1680)]
+        self.treatments[treatment]['weekData'] = copy.copy(self.weekData)
+        self.weekData = [[] for x in range(168)]
+        self.treatments[treatment]['weekdayData'] = copy.copy(self.weekdayData)
+        self.weekdayData = [[] for x in range(24)]
+        self.treatments[treatment]['weekendData'] = copy.copy(self.weekendData)
+        self.weekendData = [[] for x in range(24)]
+        self.treatments[treatment]['dayData'] = copy.copy(self.dayData)
+        self.dayData = [[] for x in range(24)]
+
+    def setTreatment (self, treatment):
+        if treatment not in self.treatments:
+            print('Treatment {} not available', treatment)
+        else:
+            self.treatment = treatment
+            self.gameData = self.treatments[treatment]['gameData']
+            self.bootData = self.treatments[treatment]['bootData']
+            self.gameDict = self.treatments[treatment]['gameDict']
+            self.bootDict = self.treatments[treatment]['bootDict']
+            self.gameSeq = self.treatments[treatment]['gameSeq']
+            self.weekData = self.treatments[treatment]['weekData']
+            self.weekdayData = self.treatments[treatment]['weekdayData']
+            self.weekendData = self.treatments[treatment]['weekendData']
+            self.dayData = self.treatments[treatment]['dayData']
+
+
     def extractByColName (self, row, columns):
         idx = columns.index(self.columnMap[self.dataType])
         return self.floatMaybe(row[idx]) / 1000
@@ -264,12 +316,20 @@ class GameData:
         return net
 
 
-    def dataArray (self, interval):
+    def getDataArray(self, treatment, interval):
         '''
         Returns the array corresponding to the specified interval, which must be
-        one of 'Weekly', 'Weekday', 'Weekend', 'Daily', 'Game'. '''
-        self.ensureGameData()
-        return self.dataMap[interval]
+        one of 'Weekly', 'Weekday', 'Weekend', 'Daily', 'Game'.'''
+        if treatment != '':
+            self.setTreatment(treatment)
+            return self.treatments[treatment][self.dataMap[interval]]
+        else:
+            return self.dataArray(interval)
+
+
+    #def dataArray (self, interval):
+    #    self.ensureGameData()
+    #    return self.dataMap[interval]
 
     def ensureGameData (self):
         if len(self.gameData) == 0:
