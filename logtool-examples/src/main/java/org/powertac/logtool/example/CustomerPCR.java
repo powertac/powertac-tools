@@ -18,7 +18,7 @@ package org.powertac.logtool.example;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;
-import java.util.ArrayList;
+//import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -26,14 +26,14 @@ import java.time.ZonedDateTime;
 import java.time.Instant;
 import java.time.ZoneId;
 
-import org.apache.logging.log4j.Logger;
-import org.joda.time.DateTimeZone;
-import org.apache.logging.log4j.LogManager;
+//import org.apache.logging.log4j.Logger;
+//import org.joda.time.DateTimeZone;
+//import org.apache.logging.log4j.LogManager;
 import org.powertac.common.CustomerInfo;
-import org.powertac.common.Tariff;
-import org.powertac.common.TariffSpecification;
+//import org.powertac.common.Tariff;
+//import org.powertac.common.TariffSpecification;
 import org.powertac.common.TariffTransaction;
-import org.powertac.common.TimeService;
+//import org.powertac.common.TimeService;
 import org.powertac.common.TariffTransaction.Type;
 import org.powertac.common.msg.SimEnd;
 import org.powertac.common.msg.SimStart;
@@ -63,10 +63,10 @@ public class CustomerPCR
 extends LogtoolContext
 implements Analyzer
 {
-  static private Logger log = LogManager.getLogger(CustomerProductionConsumption.class.getName());
+  //static private Logger log = LogManager.getLogger(CustomerProductionConsumption.class.getName());
 
   // customer data
-  private boolean single = false;
+  //private boolean single = false;
   private String customerName = "";
   private CustomerInfo customer = null;
 
@@ -109,7 +109,6 @@ implements Analyzer
    */
   private void cli (String[] args)
   {
-    int offset = 0;
     if (args.length != 3) {
       System.out.println("Usage: <analyzer> customer input-file output-file");
       return;
@@ -207,7 +206,7 @@ implements Analyzer
       }
       else {
         // TODO: is this one hour too late?
-        System.out.println("ts " + timeslot);
+        //System.out.println("ts " + timeslot);
         summarizeTimeslot(java.time.Instant.ofEpochMilli(msg.getPostedTime().getMillis()));
       }
     }
@@ -260,7 +259,7 @@ implements Analyzer
   }
 
   // Converts null Double values to 0.0
-  private double getDouble(Map map, Long key)
+  private double getDouble(Map<Long, Double> map, Long key)
   {
     Double result = (Double) map.get(key);
     if (null == result)
