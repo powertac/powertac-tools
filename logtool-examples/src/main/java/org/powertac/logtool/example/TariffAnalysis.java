@@ -21,9 +21,7 @@ import java.io.PrintWriter;
 import java.time.DayOfWeek;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
@@ -515,7 +513,7 @@ implements Analyzer
       prices = new double[hrs];
       for (int hr = 0; hr < prices.length; hr++) {
         prices[hr] =
-                tariff.getUsageCharge(start.plus(hr * TimeService.HOUR), 1.0, 1.0);
+                tariff.getUsageCharge(start.plus(hr * TimeService.HOUR), 1.0);
       }
     }
     else {
@@ -533,7 +531,7 @@ implements Analyzer
     double lastPrice = 0.0;
     for (int hr = 0; hr < prices.length; hr++) {
       prices[hr] =
-              tariff.getUsageCharge(midnight.plus(hr * TimeService.HOUR), 1.0, 1.0);
+              tariff.getUsageCharge(midnight.plus(hr * TimeService.HOUR), 1.0);
       if (hr == 0) {
         lastPrice = prices[0];
         hrPrices.put(0, prices[0]);
