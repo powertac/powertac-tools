@@ -48,8 +48,8 @@ import org.powertac.logtool.ifc.Analyzer;
  * Gathers production, consumption, regulation, and cost data for a single customer in kWh.
  * Output is one row per timeslot:
  *   timeslot index, day of week, hour,
- *     followed by six fields for each tariff the customer has subscribed to:
- *       tariffId, production, consumption,
+ *     followed by seven fields for each tariff the customer has subscribed to:
+ *       tariffId, population, production, consumption,
  *       production-consumption cost, regulation, and regulation cost.
  * 
  * NOTE: Numeric data is formatted using the US locale in order to avoid confusion over
@@ -72,13 +72,15 @@ implements Analyzer
 
   // data collectors for current timeslot, indexed by tariff Id
   private int timeslot;
+  private Map<Long, Integer> population;
   private Map<Long, Double> used;
   private Map<Long, Double> produced;
   private Map<Long, Double> pcCost;
   private Map<Long, Double> regulation;
   private Map<Long, Double> regCost;
 
-  // stored transaction for the current timeslot that may be modified by regulation
+  // stored transactions for the current timeslot, indexed by tariff ID,
+  // that may be modified by regulation
   private Map<Long, TariffTransaction> currentTx;
 
   // data output file
@@ -127,6 +129,7 @@ implements Analyzer
   public void setup ()
   {
     currentTx = new HashMap<>();
+    population = new HashMap<>();
     used = new HashMap<>();
     produced = new HashMap<>();
     pcCost = new HashMap<>();
@@ -153,7 +156,7 @@ implements Analyzer
     List<CustomerInfo> customers = repo.findByName(customerName);
     // for now, assume the first entry for the customer name is the correct one
     customer = customers.get(0);
-    data.println("ts, dow, hod, tid, prod, cons, pc-cost, reg, reg-cost");
+    data.println("ts, dow, hod, tid, pop, prod, cons, pc-cost, reg, reg-cost");
   }
   
   // Called on timeslotUpdate. Note that there are two of these before
@@ -174,7 +177,8 @@ implements Analyzer
                              dt.getHour()));
     // print customer usage, production
     for (Long key : pcCost.keySet()) {
-      data.print(String.format(", %d, %s, %s, %s, %s, %s", key,
+      data.print(String.format(", %d, %d, %s, %s, %s, %s, %s",
+                               key, getInteger(population, key),
                                df.format(getDouble(produced, key)),
                                df.format(getDouble(used, key)),
                                df.format(getDouble(pcCost, key)),
@@ -239,6 +243,7 @@ implements Analyzer
       }
       else {
         currentTx.put(key, tx);
+        population.put(key, tx.getCustomerCount());
       }
       // accumulate kWh and cost
       if (tx.getTxType() == Type.CONSUME) {
@@ -264,6 +269,15 @@ implements Analyzer
     Double result = (Double) map.get(key);
     if (null == result)
       result = 0.0;
+    return result;
+  }
+
+  // Converts null Integer values to 0
+  private int getInteger(Map<Long, Integer> map, Long key)
+  {
+    Integer result = (Integer) map.get(key);
+    if (null == result)
+      result = 0;
     return result;
   }
 
